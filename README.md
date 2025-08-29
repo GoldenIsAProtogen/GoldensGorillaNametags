@@ -2,11 +2,11 @@
 
 
 **Colors**
-\nWhite = Dev9998, E14O
-\nGray = Outdated
-\nBlue = Legal
-\nRed = Illegal
-\n
-\n
+White = Dev9998, E14O
+Gray = Outdated
+Blue = Legal
+Red = Illegal
+
+
 **Abbreviations**
 TBA
