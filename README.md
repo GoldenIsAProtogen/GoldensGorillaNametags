@@ -1,12 +1,12 @@
-**GorillaNametags** is a mod that displays the players name, as well as FPS & mods (only works with mods that have custom properties)
+**GorillaNametags** is a mod that displays the players name, as well as FPS & mods (only works with mods that have custom properties)<br>
 
 
-**Colors**
-White = Dev9998, E14O
-Gray = Outdated
-Blue = Legal
-Red = Illegal
+**Colors**<br>
+White = Dev9998, E14O<br>
+Gray = Outdated<br>
+Blue = Legal<br>
+Red = Illegal<br>
 
 
-**Abbreviations**
-TBA
+**Abbreviations**<br>
+TBA<br>
