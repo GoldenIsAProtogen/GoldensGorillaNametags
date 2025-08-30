@@ -1,4 +1,5 @@
-**GorillaNametags** is a mod that displays the players name, as well as FPS & mods (only works with mods that have custom properties)<br>
+# **GoldensGorillaNametags** 
+## This mod displays the players name, platform, FPS/HZ, and mods (only works with mods that have custom properties)<br>
 <br>
 <br>
 ## Colors<br>
