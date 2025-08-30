@@ -109,4 +109,3 @@ serum         => Cheat menu<br>
 mist          => Cheat menu<br>
 shit cosmetx  => Cosmetx mod with a custom prop, lol<br>
 Cosmetx       => Mod that gives you every cosmetic in the game<br>
-**Rest to be added**
