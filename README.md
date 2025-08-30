@@ -10,6 +10,7 @@ Red = Illegal<br>
 <br>
 <br>
 ### Abbreviations (3/?)<br>
+-# **Note: Cheats will not have source linked**<br>
 ODC       => Orion Drift Camera (made by H4RNS)<br>
 GP        => Gorilla Pad (made by E14O) [Source: https://github.com/E14O/GorillaPad]<br>
 HP        => Holdable Pad (made by Dev9998) [Source: https://github.com/developer9998/HoldablePad]<br>
