@@ -4,10 +4,13 @@
 ## Colors<br>
 White = Dev9998, E14O<br>
 White Gray = Zloth<br>
-Gray = Outdated<br>
-Blue = Legal<br>
 Yellow = HanSolo1000Falcon<br>
+Blue = Legal<br>
 Red = Illegal<br>
+<br>
+## Symbols<br>
+! = old
+!! = very old
 <br>
 <br>
 ## Abbreviations<br>
