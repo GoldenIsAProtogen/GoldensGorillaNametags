@@ -9,8 +9,8 @@ Blue = Legal<br>
 Red = Illegal<br>
 <br>
 ## Symbols<br>
-! = old
-!! = very old
+! = old<br>
+!! = very old<br>
 <br>
 <br>
 ## Abbreviations<br>
