@@ -1,6 +1,6 @@
 goldensgorillanametags=[<color=#DAA520>Goldens Gorilla Nametags</color> v{0}]
 odcam=[<color=#00FF00>ODC</color>]
-spankyui=[<color=00FF00>SUI</color>]
+spankyui=[<color=#00FF00>SUI</color>]
 gp=[<color=#00FF00>GP</color>]
 hp_left=[<color=#FFFFFF>HP</color>]
 gc=[<color=#FFFFFF>GC</color> v{0}]
