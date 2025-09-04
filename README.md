@@ -5,7 +5,7 @@
 <br>
 ## Colors<br>
 White = Dev9998, E14O<br>
-White Gray = Zloth<br>
+White Gray = Zlothy<br>
 Yellow = HanSolo1000Falcon<br>
 Blue = Legal<br>
 Red = Illegal<br>
@@ -15,7 +15,7 @@ Red = Illegal<br>
 !! = very old<br>
 <br>
 <br>
-## Abbreviations (1/2)<br>
+## Abbreviations<br>
 ### <ins>**Cheats will not have source linked, or owners name**</ins><br>
 ODC           => Orion Drift Camera (Made by H4RNS)<br>
 SUI           => SpankyUI (Made by SpankyPluh)<br>
@@ -53,17 +53,14 @@ MSP           => MonkeSmartPhone<br>
 COMP++        => Competitive++ (Made by TypeOf)<br>
 GW            => GorillaWatch (Made by Developer-Cody) [Source: https://github.com/developer-cody/GorillaWatch]<br>
 GS            => Gorilla Stats (Made by Ariel) [Source: https://github.com/arielthemonke/GorillaStats]<br>
-GD            => Gorilla Drift (Made by . . .)<br>
+GD            => Gorilla Drift<br>
 WITM          => WhoIsThatMonke (Made by HanSolo1000Falcon) [Source: https://github.com/HanSolo1000Falcon/WhoIsThatMonke]<br>
 WIC           => WhoIsCheating (Made by HanSolo1000Falcon) [Source: https://github.com/HanSolo1000Falcon/WhoIsCheating]<br>
 ZERN          => Zerns util menu (Made by Zern)<br>
-MH            => Monke Havoc (Made by . . .)<br>
+MH            => Monke Havoc<br>
 GN            => GorillaNametags (Made by HanSolo1000Falcon) [Source: https://github.com/HanSolo1000Falcon/GorillaNametags]<br>
 N++           => Nametags++ (Made by HanSolo1000Falcon) [Source: https://github.com/HanSolo1000Falcon/NametagsPlusPlus]<br>
 NFZ           => Nametags For Zlothy (Made by HanSolo1000Falcon) [Source: https://github.com/HanSolo1000Falcon/FPS-Nametags-For-Zlothy]<br>
-GD            => Gorilla Drift (Made by . . .)<br>
-ZERN          => Zern Modded Util Menu (Made by Zern)<br>
-MH            => Monke Havoc (Made by . . .)<br>
 GV            => Gorilla Vehicles (Made by . . .)<br>
 TTT           => TicTacToe (Made by HuskyGT) [Source: https://github.com/HuskyGT/TicTacToe]<br>
 BOS           => BananaOS (Upheld By HuskyGT) [Source: https://github.com/HuskyGT/Banana-OS]<br>
