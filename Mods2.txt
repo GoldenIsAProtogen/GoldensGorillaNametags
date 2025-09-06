@@ -81,6 +81,7 @@ graze heath system=Graze Health System
 gorillashop=GorillaShop v{0}
 gorillatorsoestimator=GorillaTorsoEstimator
 gorilla track=Gorilla Track
+gorilla track 2.1.0=Gorilla Track 2.1.0
 gorilla track packed=Gorilla Track Packed
 boy do i love information=Boy do I love information
 pineappleterminal=Pineapple Terminal
