@@ -1,4 +1,4 @@
-goldensgorillanametags=[<color=#DAA520>Goldens Gorilla Nametags</color> v{0}]
+goldensgorillanametags=[<color=#DAA520>GGN</color> v{0}]
 odcam=[<color=#00FF00>ODC</color>]
 spankyui=[<color=#00FF00>SUI</color>]
 gp=[<color=#00FF00>GP</color>]
