@@ -1,4 +1,3 @@
-goldensgorillanametags=(Golden)Goldens Gorilla Nametags v{0}
 odcam=Orion Drift Camera
 spankyui=SpankyUI
 gp=GorillaPad
