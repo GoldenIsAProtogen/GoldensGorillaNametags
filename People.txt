@@ -3,7 +3,7 @@
 15DB614ED9485B3B=H4RNS
 AE10C04744CCF6E7=<color=#800000>Shadow (Kitty)</color>
 9BDB39896FC1F190=<color=#E3C2F5>Linear (Really Really Really Really Really Really Cool Person :3)</color>
-A48ECC7AFC42BFF9=<color=#
+A48ECC7AFC42BFF9=<color=#800080>Lapis</color>
 665F44D434C97891=<color=#301934>exops</color>
 E354E818871BD1D8=Dane (Dev9998)
 91902A4E2624708F=Dane (Dev9998)
