@@ -108,6 +108,7 @@ modmenu=(Cheat)Tranzic
 control=(Cheat)Control
 controlfree=(Cheat)Control Free
 flux=(Cheat)Flux
+elux=(Cheat)Elux
 serum=(Cheat)Serum
 cokecosmetics=(Cheat)Horrible Cosmetx
 mistuser=(Cheat)Mist
