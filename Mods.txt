@@ -37,6 +37,7 @@ gorillastats=[<color=#00A0FF>GS</color>]
 using gorilladrift=[<color=#00A0FF>GD</color>]
 =
 cheese is gouda=
+whoisthatmonke version=[<color=#FFFF00>WITM</color> v{0}]
 monkehavocversion=[<color=#00A0FF>MH</color> v{0}]
 carname=[<color=#00A0FF>GV</color>]
 tictactoe=[<color=#00A0FF>TTT</color>]
