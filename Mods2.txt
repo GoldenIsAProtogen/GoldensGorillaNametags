@@ -36,6 +36,7 @@ gorillawatch=GorillaWatch v{0}
 gorillastats=GorillaStats
 using gorilladrift=GorillaDrift
 cheese is gouda=(Han)WhoIsCheating
+whoisthatmonke version=(Han)WhoIsThatMonke v{0}
 monkehavocversion=MonkeHavoc v{0}
 carname=GorillaVehicles
 tictactoe=TicTacToe
