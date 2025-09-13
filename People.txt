@@ -20,7 +20,7 @@ B5F9797560165521=<color=#5865F2>Zlothy</color>
 AC9E6B9DCA7BAC76=<color=#5865F2>Zlothy</color>
 96A75B23C8BBB4C9=<color=#5865F2>Zlothy</color>
 C77E23EEDAECB338=<color=#5865F2>Zlothy</color>
-83DC5E2D0C03B463=<color=#00FF00>Steve (Blue)</color>
+83DC5E2D0C03B463=<color=#0000FF>Steve (Blue)</color>
 51EAC75DC9BCAF8B=ShibaGT
 86A10278DF9691BE=<color=#FF8000>GoldenTrophy (IIDK)</color>
 373B0CBEF62D8F44=<color=#FF8000>GoldenTrophy (IIDK)</color>
