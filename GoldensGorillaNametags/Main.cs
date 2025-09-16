@@ -1,4 +1,4 @@
-﻿using BepInEx;
+using BepInEx;
 using BepInEx.Configuration;
 using HarmonyLib;
 using System;
@@ -15,6 +15,7 @@ namespace GoldensGorillaNametags
     [BepInPlugin(Constants.Guid, Constants.Name, Constants.Version)]
     public class Main : BaseUnityPlugin
     {
+        #region Start Stuff
         private TMP_FontAsset font;
         private Camera cineCam;
         private Transform mainCam;
@@ -22,6 +23,7 @@ namespace GoldensGorillaNametags
         private ConfigEntry<float> tagSize;
         private ConfigEntry<float> tagHeight;
         private ConfigEntry<bool> outlineEnabled;
+        private ConfigEntry<bool> outlineQuality;
         private ConfigEntry<Color> outlineColor;
         private ConfigEntry<float> outlineThick;
         private ConfigEntry<bool> chkMods;
@@ -43,6 +45,7 @@ namespace GoldensGorillaNametags
             tagHeight = Config.Bind("Tags", "Height", 0.65f, "Nametag height");
 
             outlineEnabled = Config.Bind("Outlines", "Enabled", true, "Tag outlines");
+            outlineQuality = Config.Bind("Outlines", "Quality", false, "Tag Quality (Can be laggy)");
             outlineColor = Config.Bind("Outlines", "Color", Color.black, "Outline color");
             outlineThick = Config.Bind("Outlines", "Thickness", 0.0015f, "Outline thickness");
 
@@ -56,6 +59,7 @@ namespace GoldensGorillaNametags
             InitCam();
             RefreshCache();
         }
+        #endregion
 
         #region Upd Things
         public void Update()
@@ -215,7 +219,15 @@ namespace GoldensGorillaNametags
 
             var clones = new List<TextMeshPro>();
             float thick = outlineThick.Value;
-            var offsets = new Vector3[] { new Vector3(0f, thick, 0f), new Vector3(0f, -thick, 0f), new Vector3(thick, 0f, 0f), new Vector3(-thick, 0f, 0f) };
+            Vector3[] offsets;
+            if (outlineQuality.Value == true)
+            {
+                offsets = new Vector3[] { new Vector3(0f, thick, 0f), new Vector3(0f, -thick, 0f), new Vector3(thick, 0f, 0f), new Vector3(-thick, 0f, 0f), new Vector3(thick, thick, 0f), new Vector3(-thick, thick, 0f), new Vector3(thick, -thick, 0f), new Vector3(-thick, -thick, 0f) };
+            }
+            else
+            {
+                offsets = new Vector3[] { new Vector3(0f, thick, 0f), new Vector3(0f, -thick, 0f), new Vector3(thick, 0f, 0f), new Vector3(-thick, 0f, 0f) };
+            }
 
             foreach (var off in offsets)
             {
