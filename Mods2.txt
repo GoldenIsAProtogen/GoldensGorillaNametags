@@ -122,3 +122,4 @@ silliness=(Cheat)Silliness
 eyerock reborn=(Cheat)Eyerock Reborn
 elysorpaid=(Cheat)Elysor Paid
 evicteduser=(Cheat)Evicted
+emotewheel=(Cheat)Emote Wheel v{0}
