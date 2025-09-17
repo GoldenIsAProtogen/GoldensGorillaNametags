@@ -6,8 +6,8 @@ AE10C04744CCF6E7=<color=#800000>Shadow (Kitty)</color>
 9BDB39896FC1F190=<color=#421a5c>Linear (Really^6 Cool Person :3)</color>
 A48ECC7AFC42BFF9=<color=#800080>Lapis</color>
 665F44D434C97891=<color=#301934>exops</color>
-E354E818871BD1D8=Dane (Dev9998)
-91902A4E2624708F=Dane (Dev9998)
+E354E818871BD1D8=<color=#FFFFFF>Dane (Dev9998)</color>
+91902A4E2624708F=<color=#FFFFFF>Dane (Dev9998)</color>
 FBE3EE50747CB892=Kaylie (GizmoGoat)
 42D7D32651E93866=<color=#392a69>Graze (Sergal)</color>
 D322FC7F6A9875DB=DecalFree
