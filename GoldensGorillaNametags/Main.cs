@@ -1,14 +1,19 @@
 using BepInEx;
 using BepInEx.Configuration;
+using GoldensGorillaNametags.Utilities;
 using HarmonyLib;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Net;
 using System.Text;
 using TMPro;
 using Unity.Cinemachine;
 using UnityEngine;
+using UnityEngine.TextCore.LowLevel;
+using GFriends = GorillaFriends.Main;
 
 namespace GoldensGorillaNametags
 {
@@ -26,11 +31,14 @@ namespace GoldensGorillaNametags
         private ConfigEntry<bool> outlineQuality;
         private ConfigEntry<Color> outlineColor;
         private ConfigEntry<float> outlineThick;
-        private ConfigEntry<bool> chkMods;
+        // Removed
+        /*private ConfigEntry<bool> chkMods;*/
         private ConfigEntry<bool> chkPlat;
         private ConfigEntry<bool> chkSpecial;
         private ConfigEntry<bool> chkFps;
         private ConfigEntry<bool> chkCos;
+        private ConfigEntry<bool> GF;
+        private ConfigEntry<bool> textQual;
 
         private readonly Dictionary<VRRig, GameObject> tagMap = new Dictionary<VRRig, GameObject>();
         private readonly Dictionary<TextMeshPro, List<TextMeshPro>> outlineMap = new Dictionary<TextMeshPro, List<TextMeshPro>>();
@@ -43,21 +51,52 @@ namespace GoldensGorillaNametags
         {
             tagSize = Config.Bind("Tags", "Size", 1f, "Nametag size");
             tagHeight = Config.Bind("Tags", "Height", 0.65f, "Nametag height");
+            textQual = Config.Bind("Tags", "Quality", false, "Nametag quality (might work idek (makes outlines crisper too))");
 
             outlineEnabled = Config.Bind("Outlines", "Enabled", true, "Tag outlines");
-            outlineQuality = Config.Bind("Outlines", "Quality", false, "Tag Quality (Can be laggy)");
+            outlineQuality = Config.Bind("Outlines", "Quality", false, "Outline quality (Can be laggy)");
             outlineColor = Config.Bind("Outlines", "Color", Color.black, "Outline color");
             outlineThick = Config.Bind("Outlines", "Thickness", 0.0015f, "Outline thickness");
 
-            chkMods = Config.Bind("Checks", "Mods", true, "Check mods");
+            // Removed
+            /*chkMods = Config.Bind("Checks", "Mods", true, "Check mods");*/
             chkPlat = Config.Bind("Checks", "Platform", true, "Check platform");
             chkSpecial = Config.Bind("Checks", "Special", true, "Check special players");
             chkFps = Config.Bind("Checks", "FPS", true, "Check FPS");
             chkCos = Config.Bind("Checks", "Cosmetics", true, "Check cosmetics");
 
-            font = Resources.Load<TMP_FontAsset>("Fonts & Materials/Arial SDF");
+            GF = Config.Bind("Other", "GFriends", false, "Use GFriends");
+
+            string fontDir = Path.Combine(Paths.BepInExRootPath, "Fonts");
+            if (!Directory.Exists(fontDir))
+                Directory.CreateDirectory(fontDir);
+
+            string fontPath = Directory.EnumerateFiles(fontDir, "*.*")
+                .FirstOrDefault(path => path.EndsWith(".ttf", StringComparison.OrdinalIgnoreCase) ||
+                                        path.EndsWith(".otf", StringComparison.OrdinalIgnoreCase));
+
+            if (fontPath != null)
+            {
+                try
+                {
+                    var unityFont = new Font(fontPath);
+                    if (textQual.Value)
+                    {
+                        font = TMP_FontAsset.CreateFontAsset(unityFont, 90, 9, GlyphRenderMode.SDFAA, 4096, 4096, AtlasPopulationMode.Dynamic);
+                    }
+                    else
+                    {
+                        font = TMP_FontAsset.CreateFontAsset(unityFont);
+                    }
+                    font.material.shader = Shader.Find("TextMeshPro/Mobile/Distance Field");
+                }
+                catch { font = Resources.Load<TMP_FontAsset>("Fonts & Materials/Arial SDF"); }
+            }
+            else { font = Resources.Load<TMP_FontAsset>("Fonts & Materials/Arial SDF"); }
+
             InitCam();
-            RefreshCache();
+            // Removed
+            /*RefreshCache();*/
         }
         #endregion
 
@@ -66,7 +105,8 @@ namespace GoldensGorillaNametags
         {
             if (Time.time - lastCache >= cacheInterval)
             {
-                RefreshCache();
+                // Removed
+                /*RefreshCache();*/
                 lastCache = Time.time;
             }
 
@@ -150,7 +190,7 @@ namespace GoldensGorillaNametags
             t.fontSize = tagSize.Value;
             t.font = font;
             t.textWrappingMode = TextWrappingModes.Normal;
-
+            
             UpdTag(rig, go);
             return go;
         }
@@ -168,6 +208,13 @@ namespace GoldensGorillaNametags
             Color c = rig.mainSkin.material.name.Contains("It") ? new Color(1f, 0f, 0f) :
                       rig.mainSkin.material.name.Contains("fected") ? new Color(1f, .5f, 0f) :
                       rig.playerColor;
+
+            if (GF.Value)
+            {
+                if (GFriendStuff.Verified(rig.OwningNetPlayer)) c = GFriends.m_clrFriend;
+                if (GFriendStuff.Friend(rig.OwningNetPlayer)) c = GFriends.m_clrFriend;
+                if (GFriendStuff.RecentlyPlayedWith(rig.OwningNetPlayer)) c = GFriends.m_clrPlayedRecently;
+            }
 
             t.color = c;
             var sb = new StringBuilder();
@@ -196,12 +243,13 @@ namespace GoldensGorillaNametags
             }
 
             sb.AppendLine(rig.OwningNetPlayer.NickName);
-
-            if (chkMods.Value)
+            
+            // Removed
+            /*if (chkMods.Value)
             {
                 string m = ModCheck(rig);
                 if (!string.IsNullOrEmpty(m)) sb.Append(string.Format("<color=white><size=70%>{0}</size></color>", m));
-            }
+            }*/
 
             t.text = sb.ToString();
             Outlines(t);
@@ -274,16 +322,18 @@ namespace GoldensGorillaNametags
             catch { cineCam = null; }
         }
 
-        private void RefreshCache()
+        // Removed
+        /*private void RefreshCache()
         {
             if (chkSpecial.Value || chkMods.Value) StartCoroutine(CacheRoutine());
-        }
+        }*/
 
         private IEnumerator CacheRoutine()
         {
             yield return new WaitForEndOfFrame();
             if (chkSpecial.Value) specialCache = PullSpecials();
-            if (chkMods.Value) modsCache = PullMods();
+            // Removed
+            /*if (chkMods.Value) modsCache = PullMods();*/
         }
 
         private string GetSpecial(VRRig rig)
@@ -348,7 +398,8 @@ namespace GoldensGorillaNametags
             foreach (var kv in dict) if (c.Contains(kv.Key)) sb.Append(kv.Value);
             return sb.ToString();
         }
-
+        // Removed
+        /*
         private string ModCheck(VRRig r)
         {
             if (!chkMods.Value || modsCache == null) return "";
@@ -357,7 +408,10 @@ namespace GoldensGorillaNametags
 
             foreach (DictionaryEntry e in props)
             {
-                string key = e.Key.ToString().ToLower();
+                string key = e.Key.ToString();
+
+                key = key.Replace("\r", "").Replace("\n", "\n").Trim().ToLower();
+
                 string tag;
                 if (modsCache.TryGetValue(key, out tag))
                 {
@@ -369,14 +423,10 @@ namespace GoldensGorillaNametags
                         else if (v.Contains("whoischeating")) tag = "[<color=#00A0FF>WIC</color>]";
                         else tag = "[WI]";
                     }
-                    else if (key == "")
+                    else if (tag.Contains("{0}"))
                     {
-                        string v = (val != null) ? val.ToString().ToLower() : "";
-                        if (v.Contains("zern")) tag = "[<color=#00A0FF>ZERN</color>]";
-                        else if (v.Contains("wyndigo")) tag = "[<color=#FF0000>WYNDIGO</color>]";
-                        else tag = "";
+                        tag = string.Format(tag, val);
                     }
-                    else if (tag.Contains("{0}")) tag = string.Format(tag, val);
                     sb.Append(tag);
                 }
             }
@@ -395,26 +445,35 @@ namespace GoldensGorillaNametags
             return sb.ToString();
         }
 
+        
         private Dictionary<string, string> PullMods()
         {
             var d = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             try
             {
-                string url = "https://raw.githubusercontent.com/GoldenIsAProtogen/GoldensGorillaNametags/refs/heads/main/Mods.txt";
+                string url = "";
                 using (WebClient w = new WebClient())
                 {
                     string content = w.DownloadString(url);
                     string[] lines = content.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
-                    foreach (string line in lines)
+
+                    foreach (string rawLine in lines)
                     {
+                        string line = rawLine.Replace("\r", "").Replace("\n", "");
                         string[] parts = line.Split(new[] { '=' }, 2);
-                        if (parts.Length == 2) d[parts[0].Trim().ToLower()] = parts[1].Trim();
+                        if (parts.Length == 2)
+                        {
+                            string key = parts[0];
+                            if (key.EndsWith("\\n")) key = key.Replace("\\n", "\n"); 
+                            d[key.Trim().ToLower()] = parts[1].Trim();
+                        }
                     }
                 }
             }
             catch { }
             return d;
         }
+        */
         #endregion
     }
 }
