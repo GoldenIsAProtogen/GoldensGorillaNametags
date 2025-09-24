@@ -1,4 +1,5 @@
-﻿using BepInEx.Bootstrap;
+//Thank you <3 (https://github.com/sirkingbinx/BingusNametags)
+using BepInEx.Bootstrap;
 
 namespace GoldensGorillaNametags.Utilities
 {
@@ -10,3 +11,4 @@ namespace GoldensGorillaNametags.Utilities
             public static bool Verified(NetPlayer player) => Installed("net.rusjj.gorillafriends") && GorillaFriends.Main.IsVerified(player.UserId);
     }
 }
+
