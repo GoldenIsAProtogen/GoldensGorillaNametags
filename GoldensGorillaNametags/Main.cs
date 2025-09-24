@@ -2,6 +2,7 @@ using BepInEx;
 using BepInEx.Configuration;
 using GoldensGorillaNametags.Utilities;
 using HarmonyLib;
+using Photon.Pun;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -9,9 +10,11 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Text.RegularExpressions;
 using TMPro;
 using Unity.Cinemachine;
 using UnityEngine;
+using UnityEngine.Networking;
 using UnityEngine.TextCore.LowLevel;
 using GFriends = GorillaFriends.Main;
 
@@ -20,53 +23,113 @@ namespace GoldensGorillaNametags
     [BepInPlugin(Constants.Guid, Constants.Name, Constants.Version)]
     public class Main : BaseUnityPlugin
     {
-        #region Start Stuff
-        private TMP_FontAsset font;
-        private Camera cineCam;
-        private Transform mainCam;
+        #region Initialization
+        public static Main Instance { get; private set; }
 
-        private ConfigEntry<float> tagSize;
-        private ConfigEntry<float> tagHeight;
-        private ConfigEntry<bool> outlineEnabled;
-        private ConfigEntry<bool> outlineQuality;
-        private ConfigEntry<Color> outlineColor;
-        private ConfigEntry<float> outlineThick;
-        // Removed
-        /*private ConfigEntry<bool> chkMods;*/
-        private ConfigEntry<bool> chkPlat;
-        private ConfigEntry<bool> chkSpecial;
-        private ConfigEntry<bool> chkFps;
-        private ConfigEntry<bool> chkCos;
-        private ConfigEntry<bool> GF;
-        private ConfigEntry<bool> textQual;
+        private TMP_FontAsset _font;
+        private Camera _cineCam;
+        private Transform _mainCam;
 
-        private readonly Dictionary<VRRig, GameObject> tagMap = new Dictionary<VRRig, GameObject>();
-        private readonly Dictionary<TextMeshPro, List<TextMeshPro>> outlineMap = new Dictionary<TextMeshPro, List<TextMeshPro>>();
-        private Dictionary<string, string> specialCache;
-        private Dictionary<string, string> modsCache;
-        private float lastCache;
-        private const float cacheInterval = 300f; // 5 min
+        private ConfigEntry<float> _tagSize, _tagHeight, _updInt, _outlineThick, _iconSize;
+        private ConfigEntry<bool> _outlineEnabled, _outlineQual, _chkMods, _chkPlat, _chkSpecial, _chkFps, _chkCos, _chkPing, _gf, _textQual, _usePlatIcons;
+        private ConfigEntry<Color> _outlineColor;
+
+        private Texture2D _computerTex, _steamTex, _metaTex;
+
+        private readonly Dictionary<VRRig, NametagData> _tagMap = new Dictionary<VRRig, NametagData>();
+        private readonly Dictionary<VRRig, int> _playerPing = new Dictionary<VRRig, int>();
+        private Dictionary<string, string> _specialCache;
+
+        private float _lastCacheT, _lastUpdT;
+        private const float cacheInt = 150f;
+        private const float tagupdcooldown = 0.3f;
+
+        private readonly Dictionary<VRRig, float> _lastTagUpdate = new Dictionary<VRRig, float>();
+        private static readonly Regex _colorTagRegex = new Regex(@"<color=[^>]+>|</color>", RegexOptions.Compiled);
+        private static readonly WaitForEndOfFrame _waitForEndOfFrame = new WaitForEndOfFrame();
+
+        private static readonly Vector3 ImageBasePosition = new Vector3(0f, 0.85f, 0f);
+        private static readonly Vector3 BaseScale = Vector3.one * 0.8f;
+
+        private static readonly Dictionary<string, string> PlatformColors = new Dictionary<string, string>
+        {
+            { "SVR", "#ffff00" },
+            { "PCVR", "#ff0000" },
+            { "O", "#00ff00" }
+        };
+
+        private static readonly Dictionary<int, string> FpsColors = new Dictionary<int, string>
+        {
+            { 250, "#800080" }, { 200, "#1E90FF" }, { 150, "#006400" },
+            { 100, "#00FF00" }, { 75, "#ADFF2F" }, { 55, "#FFFF00" },
+            { 45, "#FFA500" }, { 30, "#FF0000" }, { 29, "#8B0000" }
+        };
+
+        private static readonly Dictionary<int, string> PingColors = new Dictionary<int, string>
+        {
+            { 50, "#00FF00" }, { 100, "#ADFF2F" }, { 150, "#FFFF00" },
+            { 200, "#FFA500" }, { 300, "#FF0000" }, { 301, "#8B0000" }
+        };
+
+        private static readonly Dictionary<string, string> CosmeticTags = new Dictionary<string, string>
+        {
+            { "LBANI.", "[<color=#FCC200>AAC</color>]" }, { "LBADE.", "[<color=#FCC200>FP</color>]" },
+            { "LBAGS.", "[<color=#FCC200>ILL</color>]" }, { "LBAAK.", "[<color=#FF0000>S</color>]" },
+            { "LMAPY.", "[<color=#C80000>FS</color>]" }, { "LBAAD.", "[<color=#960000>A</color>]" },
+            { "LMAGB.", "[<color=#ffffff>CG</color>]" }, { "LMAKH.", "[<color=#ffffff>ZC</color>]" },
+            { "LMAJD.", "[<color=#ffffff>DK</color>]" }, { "LMAHF.", "[<color=#ffffff>CFP</color>]" },
+            { "LMAAQ.", "[<color=#ffffff>ST</color>]" }, { "LMAAV.", "[<color=#ffffff>HTS</color>]" }
+        };
+
+        private class NametagData
+        {
+            public GameObject Container { get; set; }
+            public TextMeshPro MainText { get; set; }
+            public GameObject PlatIconObj { get; set; }
+            public SpriteRenderer PlatIconRenderer { get; set; }
+            public List<TextMeshPro> OutlineClones { get; set; } = new List<TextMeshPro>();
+            public string LastText { get; set; } = string.Empty;
+            public string LastPlatform { get; set; } = string.Empty;
+            public Coroutine ImgUpdCoroutine { get; set; }
+            public Texture2D CurrentPlatTexture { get; set; }
+        }
 
         internal void Start()
         {
-            tagSize = Config.Bind("Tags", "Size", 1f, "Nametag size");
-            tagHeight = Config.Bind("Tags", "Height", 0.65f, "Nametag height");
-            textQual = Config.Bind("Tags", "Quality", false, "Nametag quality (might work idek (makes outlines crisper too))");
+            Instance = this;
+            InitializeConfig();
+            LoadFont();
+            InitializeCamera();
+            InitializeHarmony();
+            PreloadTextures();
+            RefreshCache();
+        }
 
-            outlineEnabled = Config.Bind("Outlines", "Enabled", true, "Tag outlines");
-            outlineQuality = Config.Bind("Outlines", "Quality", false, "Outline quality (Can be laggy)");
-            outlineColor = Config.Bind("Outlines", "Color", Color.black, "Outline color");
-            outlineThick = Config.Bind("Outlines", "Thickness", 0.0015f, "Outline thickness");
+        private void InitializeConfig()
+        {
+            _tagSize = Config.Bind("Tags", "Size", 1f, "Nametag size");
+            _tagHeight = Config.Bind("Tags", "Height", 0.65f, "Nametag height");
+            _textQual = Config.Bind("Tags", "Quality", false, "Nametag quality");
+            _updInt = Config.Bind("Tags", "Update Int", 0.01f, "Tag update interval");
 
-            // Removed
-            /*chkMods = Config.Bind("Checks", "Mods", true, "Check mods");*/
-            chkPlat = Config.Bind("Checks", "Platform", true, "Check platform");
-            chkSpecial = Config.Bind("Checks", "Special", true, "Check special players");
-            chkFps = Config.Bind("Checks", "FPS", true, "Check FPS");
-            chkCos = Config.Bind("Checks", "Cosmetics", true, "Check cosmetics");
+            _outlineEnabled = Config.Bind("Outlines", "Enabled", true, "Tag outlines");
+            _outlineQual = Config.Bind("Outlines", "Quality", false, "Outline quality");
+            _outlineColor = Config.Bind("Outlines", "Color", Color.black, "Outline color");
+            _outlineThick = Config.Bind("Outlines", "Thickness", 0.0025f, "Outline thickness");
 
-            GF = Config.Bind("Other", "GFriends", false, "Use GFriends");
+            _chkPlat = Config.Bind("Checks", "Platform", true, "Check platform");
+            _chkSpecial = Config.Bind("Checks", "Special", true, "Check special players");
+            _chkFps = Config.Bind("Checks", "FPS", true, "Check FPS");
+            _chkCos = Config.Bind("Checks", "Cosmetics", true, "Check cosmetics");
+            _chkPing = Config.Bind("Checks", "Ping", false, "Check ping (WIP (doesnt work))");
 
+            _gf = Config.Bind("Other", "GFriends", false, "Use GFriends");
+            _usePlatIcons = Config.Bind("Platform", "UseIcons", false, "Show platform as icons instead of text");
+            _iconSize = Config.Bind("Platform", "Icon Size", 0.015f, "Size of the platform icons");
+        }
+
+        private void LoadFont()
+        {
             string fontDir = Path.Combine(Paths.BepInExRootPath, "Fonts");
             if (!Directory.Exists(fontDir))
                 Directory.CreateDirectory(fontDir);
@@ -75,405 +138,559 @@ namespace GoldensGorillaNametags
                 .FirstOrDefault(path => path.EndsWith(".ttf", StringComparison.OrdinalIgnoreCase) ||
                                         path.EndsWith(".otf", StringComparison.OrdinalIgnoreCase));
 
-            if (fontPath != null)
+            try
             {
-                try
+                if (fontPath != null)
                 {
                     var unityFont = new Font(fontPath);
-                    if (textQual.Value)
-                    {
-                        font = TMP_FontAsset.CreateFontAsset(unityFont, 90, 9, GlyphRenderMode.SDFAA, 4096, 4096, AtlasPopulationMode.Dynamic);
-                    }
-                    else
-                    {
-                        font = TMP_FontAsset.CreateFontAsset(unityFont);
-                    }
-                    font.material.shader = Shader.Find("TextMeshPro/Mobile/Distance Field");
+                    _font = _textQual.Value
+                        ? TMP_FontAsset.CreateFontAsset(unityFont, 90, 9, GlyphRenderMode.SDFAA, 4096, 4096, AtlasPopulationMode.Dynamic)
+                        : TMP_FontAsset.CreateFontAsset(unityFont);
+                    _font.material.shader = Shader.Find("TextMeshPro/Mobile/Distance Field");
                 }
-                catch { font = Resources.Load<TMP_FontAsset>("Fonts & Materials/Arial SDF"); }
+                else
+                {
+                    _font = Resources.Load<TMP_FontAsset>("Fonts & Materials/Arial SDF");
+                }
             }
-            else { font = Resources.Load<TMP_FontAsset>("Fonts & Materials/Arial SDF"); }
+            catch
+            {
+                _font = Resources.Load<TMP_FontAsset>("Fonts & Materials/Arial SDF");
+            }
+        }
 
-            InitCam();
-            // Removed
-            /*RefreshCache();*/
+        private void InitializeCamera()
+        {
+            try { _cineCam = FindFirstObjectByType<CinemachineBrain>()?.GetComponent<Camera>(); }
+            catch { _cineCam = null; }
+        }
+
+        private void InitializeHarmony()
+        {
+            new Harmony(Constants.Guid + ".ping").PatchAll();
+        }
+
+        private void PreloadTextures()
+        {
+            StartCoroutine(ImageCoroutine(
+                "https://raw.githubusercontent.com/GoldenIsAProtogen/GoldensGorillaNametags/main/computer.png",
+                tex => _computerTex = tex));
+            StartCoroutine(ImageCoroutine(
+                "https://raw.githubusercontent.com/GoldenIsAProtogen/GoldensGorillaNametags/main/steam.png",
+                tex => _steamTex = tex));
+            StartCoroutine(ImageCoroutine(
+                "https://raw.githubusercontent.com/GoldenIsAProtogen/GoldensGorillaNametags/main/meta.png",
+                tex => _metaTex = tex));
         }
         #endregion
 
-        #region Upd Things
+        #region Updating Loop
         public void Update()
         {
-            if (Time.time - lastCache >= cacheInterval)
+            if (Time.time - _lastCacheT >= cacheInt)
             {
-                // Removed
-                /*RefreshCache();*/
-                lastCache = Time.time;
+                RefreshCache();
+                _lastCacheT = Time.time;
             }
+            if (_mainCam == null || Camera.main != null)
+                _mainCam = Camera.main?.transform;
 
-            foreach (var rig in GorillaParent.instance.vrrigs)
+            float currentTime = Time.time;
+            if (currentTime - _lastUpdT >= _updInt.Value)
             {
-                if (rig == null || rig.isOfflineVRRig || rig.mainSkin == null || rig.mainSkin.material == null) continue;
-                if (rig.mainSkin.material.name.Contains("gorilla_body") && rig.mainSkin.material.shader == Shader.Find("GorillaTag/UberShader"))
-                    rig.mainSkin.material.color = rig.playerColor;
+                foreach (var rig in GorillaParent.instance.vrrigs)
+                {
+                    if (rig == null || rig.isOfflineVRRig || rig.mainSkin?.material == null) continue;
+                    if (rig.mainSkin.material.name.Contains("gorilla_body") && rig.mainSkin.material.shader == Shader.Find("GorillaTag/UberShader"))
+                        rig.mainSkin.material.color = rig.playerColor;
+                }
+                var currentRigs = new HashSet<VRRig>(GorillaParent.instance.vrrigs ?? new List<VRRig>());
+                CleanupTags(currentRigs);
+                CreateMissingTags(currentRigs);
+                UpdAllTags();
+                _lastUpdT = currentTime;
             }
-
-            var rigs = new HashSet<VRRig>(GorillaParent.instance.vrrigs);
-            CleanupTags(rigs);
-            SpawnTags(rigs);
-
-            mainCam = Camera.main != null ? Camera.main.transform : null;
-
-            foreach (var kv in tagMap)
-            {
-                var rig = kv.Key;
-                var tag = kv.Value;
-                if (rig == null || tag == null || rig.isOfflineVRRig || rig.OwningNetPlayer == null) continue;
-                FaceCam(tag);
-                UpdTag(rig, tag);
-            }
-        }
-
-        private void FaceCam(GameObject tag)
-        {
-            if (tag == null) return;
-
-            Transform cam = cineCam != null ? cineCam.transform : mainCam;
-            if (cam == null) return;
-
-            tag.transform.LookAt(cam.position);
-            tag.transform.Rotate(0f, 180f, 0f);
         }
         #endregion
 
-        #region Tag Things
-        private void CleanupTags(HashSet<VRRig> rigs)
+        #region Tag Management
+        private void CleanupTags(HashSet<VRRig> validRigs)
         {
-            var removeList = new List<VRRig>();
+            var rigsToRemove = _tagMap.Where(kv =>
+                kv.Key == null ||
+                !validRigs.Contains(kv.Key) ||
+                kv.Key.isOfflineVRRig ||
+                kv.Key.OwningNetPlayer == null)
+                .Select(kv => kv.Key)
+                .ToList();
 
-            foreach (var kv in tagMap)
+            foreach (var rig in rigsToRemove)
             {
-                var rig = kv.Key;
-                if (rig == null || !rigs.Contains(rig) || rig.isOfflineVRRig || rig.OwningNetPlayer == null)
+                if (_tagMap.TryGetValue(rig, out var data))
                 {
-                    var mainTxt = kv.Value.GetComponent<TextMeshPro>();
-                    if (mainTxt != null && outlineMap.ContainsKey(mainTxt))
-                    {
-                        foreach (var o in outlineMap[mainTxt]) Destroy(o.gameObject);
-                        outlineMap.Remove(mainTxt);
-                    }
-                    Destroy(kv.Value);
-                    removeList.Add(rig);
+                    if (data.ImgUpdCoroutine != null)
+                        StopCoroutine(data.ImgUpdCoroutine);
+
+                    CleanupOutline(data);
+                    if (data.Container != null)
+                        Destroy(data.Container);
+                }
+                _tagMap.Remove(rig);
+                _playerPing.Remove(rig);
+                _lastTagUpdate.Remove(rig);
+            }
+        }
+
+        private void CreateMissingTags(HashSet<VRRig> validRigs)
+        {
+            foreach (var rig in validRigs)
+            {
+                if (rig == null || rig.isOfflineVRRig || rig.OwningNetPlayer == null)
+                    continue;
+
+                if (!_tagMap.ContainsKey(rig))
+                {
+                    _tagMap[rig] = CreateNametag(rig);
                 }
             }
-
-            foreach (var r in removeList) tagMap.Remove(r);
         }
 
-        private void SpawnTags(HashSet<VRRig> rigs)
+        private NametagData CreateNametag(VRRig rig)
         {
-            foreach (var r in rigs)
+            var data = new NametagData();
+
+            data.Container = new GameObject("NametagContainer");
+            data.Container.transform.SetParent(rig.transform, false);
+            data.Container.transform.localScale = BaseScale;
+            data.Container.transform.localPosition = new Vector3(0f, _tagHeight.Value, 0f);
+
+            var mainTextGo = new GameObject("NametagMain");
+            mainTextGo.transform.SetParent(data.Container.transform, false);
+            mainTextGo.transform.localPosition = Vector3.zero;
+            mainTextGo.transform.localScale = new Vector3(0.8f, 0.8f, 0.8f);
+
+            data.MainText = mainTextGo.AddComponent<TextMeshPro>();
+            ConfigTxtComponent(data.MainText);
+
+            data.PlatIconObj = new GameObject("PlatformIcon");
+            data.PlatIconObj.transform.SetParent(data.Container.transform, false);
+            data.PlatIconObj.transform.localPosition = ImageBasePosition;
+            data.PlatIconObj.transform.localScale = new Vector3(_iconSize.Value, _iconSize.Value, _iconSize.Value);
+
+            data.PlatIconRenderer = data.PlatIconObj.AddComponent<SpriteRenderer>();
+            data.PlatIconRenderer.sortingOrder = 10;
+            data.PlatIconRenderer.gameObject.SetActive(false);
+
+            data.ImgUpdCoroutine = StartCoroutine(UpdPlatIconCoroutine(rig, data));
+
+            return data;
+        }
+
+        private void ConfigTxtComponent(TextMeshPro text)
+        {
+            text.alignment = TextAlignmentOptions.Center;
+            text.fontSize = _tagSize.Value;
+            text.font = _font;
+            text.textWrappingMode = TextWrappingModes.Normal;
+            text.richText = true;
+        }
+
+        private void UpdAllTags()
+        {
+            float currentTime = Time.time;
+
+            foreach (var kv in _tagMap)
             {
-                if (r == null || r.isOfflineVRRig || r.OwningNetPlayer == null) continue;
-                if (!tagMap.ContainsKey(r)) tagMap[r] = CreateTag(r);
+                var rig = kv.Key;
+                var data = kv.Value;
+
+                if (rig == null || data?.Container == null || rig.isOfflineVRRig || rig.OwningNetPlayer == null)
+                    continue;
+
+                Cam(data.Container.transform);
+
+                if (!_lastTagUpdate.ContainsKey(rig) || currentTime - _lastTagUpdate[rig] >= tagupdcooldown)
+                {
+                    UpdTagContent(rig, data);
+                    _lastTagUpdate[rig] = currentTime;
+                }
+
+                UpdPlatIcon(data);
             }
         }
 
-        private GameObject CreateTag(VRRig rig)
+        private void Cam(Transform tagTransform)
         {
-            var go = new GameObject("nametag");
-            go.transform.SetParent(rig.transform);
-            go.transform.localScale = new Vector3(.8f, .8f, .8f);
-            go.transform.localPosition = new Vector3(0f, tagHeight.Value, 0f);
+            if (tagTransform == null) return;
 
-            var t = go.AddComponent<TextMeshPro>();
-            t.alignment = TextAlignmentOptions.Center;
-            t.fontSize = tagSize.Value;
-            t.font = font;
-            t.textWrappingMode = TextWrappingModes.Normal;
-            
-            UpdTag(rig, go);
-            return go;
+            Transform cameraTransform = _cineCam != null ? _cineCam.transform : _mainCam;
+            if (cameraTransform == null) return;
+
+            tagTransform.LookAt(cameraTransform.position);
+            tagTransform.Rotate(0f, 180f, 0f);
+
+            foreach (Transform child in tagTransform)
+            {
+                child.localRotation = Quaternion.identity;
+            }
         }
 
-        private void UpdTag(VRRig rig, GameObject tag)
+        private void UpdPlatIcon(NametagData data)
         {
-            if (rig == null || tag == null) return;
-
-            var t = tag.GetComponent<TextMeshPro>();
-            if (t == null) return;
-
-            if (t.fontSize != tagSize.Value) t.fontSize = tagSize.Value;
-            tag.transform.localPosition = new Vector3(0f, tagHeight.Value, 0f);
-
-            Color c = rig.mainSkin.material.name.Contains("It") ? new Color(1f, 0f, 0f) :
-                      rig.mainSkin.material.name.Contains("fected") ? new Color(1f, .5f, 0f) :
-                      rig.playerColor;
-
-            if (GF.Value)
+            if (data.PlatIconRenderer != null)
             {
-                if (GFriendStuff.Verified(rig.OwningNetPlayer)) c = GFriends.m_clrFriend;
-                if (GFriendStuff.Friend(rig.OwningNetPlayer)) c = GFriends.m_clrFriend;
-                if (GFriendStuff.RecentlyPlayedWith(rig.OwningNetPlayer)) c = GFriends.m_clrPlayedRecently;
+                bool shouldBeVisible = _usePlatIcons.Value && data.CurrentPlatTexture != null;
+                data.PlatIconRenderer.gameObject.SetActive(shouldBeVisible);
+            }
+        }
+
+        private void UpdTagContent(VRRig rig, NametagData data)
+        {
+            data.Container.transform.localPosition = new Vector3(0f, _tagHeight.Value, 0f);
+
+            if (data.MainText.fontSize != _tagSize.Value)
+                data.MainText.fontSize = _tagSize.Value;
+
+            string txt = CreateTagTxt(rig);
+
+            if (data.LastText != txt)
+            {
+                data.MainText.text = txt;
+                data.LastText = txt;
+                UpdTxtColor(rig, data.MainText);
+                UpdOutlines(data);
+            }
+        }
+
+        private string CreateTagTxt(VRRig rig)
+        {
+            var sb = new StringBuilder(128);
+
+            if (_chkSpecial.Value)
+            {
+                string specialTag = GetSpecialTag(rig);
+                if (!string.IsNullOrEmpty(specialTag))
+                    sb.AppendLine(specialTag);
             }
 
-            t.color = c;
-            var sb = new StringBuilder();
-
-            if (chkSpecial.Value)
-            {
-                string sp = GetSpecial(rig);
-                if (!string.IsNullOrEmpty(sp)) sb.AppendLine(sp);
-            }
-
-            if (chkFps.Value)
+            if (_chkFps.Value)
             {
                 int fps = (int)Traverse.Create(rig).Field("fps").GetValue();
-                sb.Append(string.Format("<color={0}>{1}</color>\n", FPSColor(fps), fps));
+                sb.Append($"<color={GetFpsColor(fps)}>{fps}</color>\n");
             }
 
-            if (chkPlat.Value)
+            if (_chkPing.Value)
             {
-                string plat = Platform(rig);
-                string cos = chkCos.Value ? Cosmetics(rig) : "";
-                sb.Append(string.Format("<color=white>{0}{1}</color>\n", plat, cos));
+                int ping = GetPing(rig);
+                sb.Append($"<color={GetPingColor(ping)}>{ping}ms</color>\n");
             }
-            else if (chkCos.Value)
+
+            if (_chkPlat.Value && !_usePlatIcons.Value)
             {
-                sb.Append(string.Format("<color=white>{0}</color>\n", Cosmetics(rig)));
+                string platformTag = GetPlatTag(rig);
+                string cosmeticsTag = _chkCos.Value ? GetCosTag(rig) : "";
+                sb.Append($"<color=white>{platformTag}{cosmeticsTag}</color>\n");
+            }
+            else if (_chkCos.Value && !_usePlatIcons.Value)
+            {
+                sb.Append($"<color=white>{GetCosTag(rig)}</color>\n");
             }
 
             sb.AppendLine(rig.OwningNetPlayer.NickName);
-            
-            // Removed
-            /*if (chkMods.Value)
-            {
-                string m = ModCheck(rig);
-                if (!string.IsNullOrEmpty(m)) sb.Append(string.Format("<color=white><size=70%>{0}</size></color>", m));
-            }*/
 
-            t.text = sb.ToString();
-            Outlines(t);
+            return sb.ToString();
         }
 
-        private void Outlines(TextMeshPro main)
+        private void UpdTxtColor(VRRig rig, TextMeshPro text)
         {
-            if (outlineMap.ContainsKey(main))
-            {
-                foreach (var o in outlineMap[main]) if (o != null) Destroy(o.gameObject);
-                outlineMap.Remove(main);
-            }
-
-            if (!outlineEnabled.Value) return;
-
-            var clones = new List<TextMeshPro>();
-            float thick = outlineThick.Value;
-            Vector3[] offsets;
-            if (outlineQuality.Value == true)
-            {
-                offsets = new Vector3[] { new Vector3(0f, thick, 0f), new Vector3(0f, -thick, 0f), new Vector3(thick, 0f, 0f), new Vector3(-thick, 0f, 0f), new Vector3(thick, thick, 0f), new Vector3(-thick, thick, 0f), new Vector3(thick, -thick, 0f), new Vector3(-thick, -thick, 0f) };
-            }
-            else
-            {
-                offsets = new Vector3[] { new Vector3(0f, thick, 0f), new Vector3(0f, -thick, 0f), new Vector3(thick, 0f, 0f), new Vector3(-thick, 0f, 0f) };
-            }
-
-            foreach (var off in offsets)
-            {
-                var txt = Instantiate(main, main.transform.parent);
-                txt.text = StripColors(main.text);
-                txt.transform.localPosition = main.transform.localPosition + off;
-                txt.transform.localRotation = main.transform.localRotation;
-                txt.transform.localScale = main.transform.localScale;
-
-                txt.color = outlineColor.Value;
-                txt.fontMaterial = main.fontMaterial;
-                txt.fontSize = main.fontSize;
-                txt.sortingLayerID = main.sortingLayerID;
-                txt.sortingOrder = main.sortingOrder - 1;
-
-                var cr = txt.GetComponent<CanvasRenderer>();
-                if (cr != null) cr.cull = false;
-                clones.Add(txt);
-            }
-            outlineMap[main] = clones;
+            Color color = DeterminePlayerColor(rig);
+            text.color = color;
         }
 
-        private string StripColors(string s) => System.Text.RegularExpressions.Regex.Replace(s, @"<color=[^>]+>|</color>", "");
+        private Color DeterminePlayerColor(VRRig rig)
+        {
+            if (rig.mainSkin.material.name.Contains("It"))
+                return new Color(1f, 0f, 0f);
+            if (rig.mainSkin.material.name.Contains("fected"))
+                return new Color(1f, 0.5f, 0f);
+
+            if (_gf.Value && rig.OwningNetPlayer != null)
+            {
+                if (GFriendStuff.Verified(rig.OwningNetPlayer))
+                    return GFriends.m_clrVerified;
+                if (GFriendStuff.Friend(rig.OwningNetPlayer))
+                    return GFriends.m_clrFriend;
+                if (GFriendStuff.RecentlyPlayedWith(rig.OwningNetPlayer))
+                    return GFriends.m_clrPlayedRecently;
+            }
+
+            return rig.playerColor;
+        }
+
+        private void UpdOutlines(NametagData data)
+        {
+            CleanupOutline(data);
+
+            if (!_outlineEnabled.Value || data.MainText == null)
+                return;
+
+            CreateOutlineClones(data);
+        }
+
+        private void CleanupOutline(NametagData data)
+        {
+            if (data.OutlineClones != null)
+            {
+                foreach (var outline in data.OutlineClones)
+                {
+                    if (outline != null && outline.gameObject != null)
+                        Destroy(outline.gameObject);
+                }
+                data.OutlineClones.Clear();
+            }
+        }
+
+        private void CreateOutlineClones(NametagData data)
+        {
+            float thickness = _outlineThick.Value;
+            Vector3[] offsets = _outlineQual.Value ? CreateHighQualityOffsets(thickness) : CreateStandardOffsets(thickness);
+
+            string plainText = StripColorTags(data.MainText.text);
+
+            foreach (var offset in offsets)
+            {
+                var outline = CreateOutlineClone(data.MainText, offset, plainText);
+                data.OutlineClones.Add(outline);
+            }
+        }
+
+        private Vector3[] CreateStandardOffsets(float thickness) => new Vector3[]
+        {
+            new Vector3(0f, thickness, 0f), new Vector3(0f, -thickness, 0f),
+            new Vector3(thickness, 0f, 0f), new Vector3(-thickness, 0f, 0f)
+        };
+
+        private Vector3[] CreateHighQualityOffsets(float thickness) => new Vector3[]
+        {
+            new Vector3(0f, thickness, 0f), new Vector3(0f, -thickness, 0f),
+            new Vector3(thickness, 0f, 0f), new Vector3(-thickness, 0f, 0f),
+            new Vector3(thickness, thickness, 0f), new Vector3(-thickness, thickness, 0f),
+            new Vector3(thickness, -thickness, 0f), new Vector3(-thickness, -thickness, 0f)
+        };
+
+        private TextMeshPro CreateOutlineClone(TextMeshPro original, Vector3 offset, string text)
+        {
+            var clone = Instantiate(original, original.transform.parent);
+            clone.text = text;
+            clone.transform.localPosition = original.transform.localPosition + offset;
+            clone.transform.localRotation = original.transform.localRotation;
+            clone.transform.localScale = original.transform.localScale;
+            clone.color = _outlineColor.Value;
+            clone.sortingOrder = original.sortingOrder - 1;
+
+            var canvasRenderer = clone.GetComponent<CanvasRenderer>();
+            if (canvasRenderer != null)
+                canvasRenderer.cull = false;
+
+            return clone;
+        }
+
+        private string StripColorTags(string text) => _colorTagRegex.Replace(text, "");
         #endregion
 
-        #region Utils
-        private string FPSColor(int fps)
+        #region Utilities
+        private IEnumerator UpdPlatIconCoroutine(VRRig rig, NametagData data)
         {
-            if (fps >= 250) return "#800080";
-            if (fps >= 200) return "#1E90FF";
-            if (fps >= 150) return "#006400";
-            if (fps >= 100) return "#00FF00";
-            if (fps >= 75) return "#ADFF2F";
-            if (fps >= 55) return "#FFFF00";
-            if (fps >= 45) return "#FFA500";
-            if (fps >= 30) return "#FF0000";
-            if (fps <= 29) return "#600000";
-            return "#FFFFFF";
-        }
+            while (_computerTex == null || _steamTex == null || _metaTex == null)
+                yield return null;
 
-        private void InitCam()
-        {
-            try { cineCam = FindFirstObjectByType<CinemachineBrain>()?.GetComponent<Camera>(); }
-            catch { cineCam = null; }
-        }
+            yield return new WaitForSeconds(2f);
 
-        // Removed
-        /*private void RefreshCache()
-        {
-            if (chkSpecial.Value || chkMods.Value) StartCoroutine(CacheRoutine());
-        }*/
-
-        private IEnumerator CacheRoutine()
-        {
-            yield return new WaitForEndOfFrame();
-            if (chkSpecial.Value) specialCache = PullSpecials();
-            // Removed
-            /*if (chkMods.Value) modsCache = PullMods();*/
-        }
-
-        private string GetSpecial(VRRig rig)
-        {
-            if (!chkSpecial.Value || rig == null || rig.OwningNetPlayer == null || specialCache == null) return "";
-            string r;
-            if (specialCache.TryGetValue(rig.OwningNetPlayer.UserId, out r)) return r;
-            return "";
-        }
-
-        private Dictionary<string, string> PullSpecials()
-        {
-            var d = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            try
+            while (rig != null && data?.PlatIconRenderer != null)
             {
-                string url = "https://raw.githubusercontent.com/GoldenIsAProtogen/GoldensGorillaNametags/refs/heads/main/People.txt";
-                using (WebClient w = new WebClient())
+                if (_usePlatIcons.Value && _chkPlat.Value)
                 {
-                    string content = w.DownloadString(url);
-                    string[] lines = content.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
-                    foreach (string line in lines)
-                    {
-                        string[] parts = line.Split(new[] { '=' }, 2);
-                        if (parts.Length == 2) d[parts[0].Trim()] = parts[1].Trim();
-                    }
+                    UpdPlatIconTexture(rig, data);
+                }
+                else
+                {
+                    data.CurrentPlatTexture = null;
+                    data.PlatIconRenderer.sprite = null;
+                    data.PlatIconRenderer.gameObject.SetActive(false);
+                }
+
+                yield return new WaitForSeconds(10f);
+            }
+        }
+
+        private void UpdPlatIconTexture(VRRig rig, NametagData data)
+        {
+            Texture2D newPlatformTexture = PlatTexture(rig);
+
+            if (newPlatformTexture != data.CurrentPlatTexture)
+            {
+                data.CurrentPlatTexture = newPlatformTexture;
+
+                if (newPlatformTexture != null)
+                {
+                    data.PlatIconRenderer.sprite = Sprite.Create(newPlatformTexture,
+                        new Rect(0, 0, newPlatformTexture.width, newPlatformTexture.height),
+                        Vector2.one * 0.5f);
+
+                    data.PlatIconRenderer.gameObject.SetActive(true);
+                }
+                else
+                {
+                    data.PlatIconRenderer.sprite = null;
+                    data.PlatIconRenderer.gameObject.SetActive(false);
                 }
             }
-            catch { }
-            return d;
         }
 
-        private string Platform(VRRig r)
+        private Texture2D PlatTexture(VRRig rig)
         {
-            if (!chkPlat.Value) return "";
-            string cos = r.concatStringOfCosmeticsAllowed;
-            if (cos.Contains("S. FIRST LOGIN")) return "[<color=#ffff00>SVR</color>]";
-            if (cos.Contains("FIRST LOGIN") || r.OwningNetPlayer.GetPlayerRef().CustomProperties.Count >= 2) return "[<color=#ff0000>PCVR</color>]";
-            if (!cos.Contains("FIRST LOGIN") || cos.Contains("LMAKT.")) return "[<color=#00ff00>O</color>]";
-            return "[Unknown]";
+            if (rig?.concatStringOfCosmeticsAllowed == null)
+                return null;
+
+            string cosmetics = rig.concatStringOfCosmeticsAllowed;
+
+            if (cosmetics.Contains("S. FIRST LOGIN"))
+                return _steamTex;
+            else if (cosmetics.Contains("FIRST LOGIN"))
+                return _computerTex;
+            else
+                return _metaTex;
         }
 
-        private string Cosmetics(VRRig r)
+        public void PlrVelUpd(VRRig rig, float time)
         {
-            if (!chkCos.Value) return "";
-            var sb = new StringBuilder();
-            string c = r.concatStringOfCosmeticsAllowed;
-            var dict = new Dictionary<string, string>
+            if (rig != null) _playerPing[rig] = (int)Math.Abs((time * 1000) - PhotonNetwork.ServerTimestamp);
+        }
+
+        private int GetPing(VRRig rig) => rig == null || !_playerPing.TryGetValue(rig, out int ping) ? 0 : ping;
+
+        private string GetPingColor(int ping)
+        {
+            foreach (var threshold in PingColors.OrderByDescending(kv => kv.Key))
             {
-                { "LBANI.", "[<color=#FCC200>AAC</color>]" },
-                { "LBADE.", "[<color=#FCC200>FP</color>]" },
-                { "LBAGS.", "[<color=#FCC200>ILL</color>]" },
-                { "LBAAK.", "[<color=#FF0000>S</color>]" },
-                { "LMAPY.", "[<color=#C80000>FS</color>]" },
-                { "LBAAD.", "[<color=#960000>A</color>]" },
-                { "LMAGB.", "[<color=#ffffff>CG</color>]" },
-                { "LMAKH.", "[<color=#ffffff>ZC</color>]" },
-                { "LMAJD.", "[<color=#ffffff>DK</color>]" },
-                { "LMAHF.", "[<color=#ffffff>CFP</color>]" },
-                { "LMAAQ.", "[<color=#ffffff>ST</color>]" },
-                { "LMAAV.", "[<color=#ffffff>HTS</color>]" }
-            };
-            foreach (var kv in dict) if (c.Contains(kv.Key)) sb.Append(kv.Value);
-            return sb.ToString();
+                if (ping >= threshold.Key)
+                    return threshold.Value;
+            }
+            return "#600000";
         }
-        // Removed
-        /*
-        private string ModCheck(VRRig r)
+
+        private string GetFpsColor(int fps)
         {
-            if (!chkMods.Value || modsCache == null) return "";
-            var sb = new StringBuilder();
-            var props = r.Creator.GetPlayerRef().CustomProperties;
-
-            foreach (DictionaryEntry e in props)
+            foreach (var threshold in FpsColors.OrderByDescending(kv => kv.Key))
             {
-                string key = e.Key.ToString();
+                if (fps >= threshold.Key)
+                    return threshold.Value;
+            }
+            return "#600000";
+        }
 
-                key = key.Replace("\r", "").Replace("\n", "\n").Trim().ToLower();
+        private string GetSpecialTag(VRRig rig)
+        {
+            if (!_chkSpecial.Value || rig?.OwningNetPlayer == null || _specialCache == null)
+                return string.Empty;
 
-                string tag;
-                if (modsCache.TryGetValue(key, out tag))
-                {
-                    object val = e.Value;
-                    if (key == "cheese is gouda")
-                    {
-                        string v = (val != null) ? val.ToString().ToLower() : "";
-                        if (v.Contains("whoisthatmonke")) tag = "[<color=#808080>WITM!</color>]";
-                        else if (v.Contains("whoischeating")) tag = "[<color=#00A0FF>WIC</color>]";
-                        else tag = "[WI]";
-                    }
-                    else if (tag.Contains("{0}"))
-                    {
-                        tag = string.Format(tag, val);
-                    }
-                    sb.Append(tag);
-                }
+            return _specialCache.TryGetValue(rig.OwningNetPlayer.UserId, out var tag) ? tag : string.Empty;
+        }
+
+        private string GetPlatTag(VRRig rig)
+        {
+            if (!_chkPlat.Value) return string.Empty;
+
+            string cosmetics = rig.concatStringOfCosmeticsAllowed ?? "";
+            string platformKey = PlatKey(cosmetics);
+
+            return PlatformColors.TryGetValue(platformKey, out var color) ? $"[<color={color}>{platformKey}</color>]" : "[Unknown]";
+        }
+
+        private string PlatKey(string cosmetics)
+        {
+            if (cosmetics.Contains("S. FIRST LOGIN")) return "SVR";
+            if (cosmetics.Contains("FIRST LOGIN") || IsPCVR(cosmetics)) return "PCVR";
+            if (!cosmetics.Contains("FIRST LOGIN") || cosmetics.Contains("LMAKT.")) return "O";
+            return "Unknown";
+        }
+
+        private bool IsPCVR(string cosmetics) => cosmetics.Contains("FIRST LOGIN") || cosmetics.Length >= 2;
+
+        private string GetCosTag(VRRig rig)
+        {
+            if (!_chkCos.Value) return string.Empty;
+
+            var sb = new StringBuilder(32);
+            string cosmetics = rig.concatStringOfCosmeticsAllowed ?? "";
+
+            foreach (var cosmetic in CosmeticTags)
+            {
+                if (cosmetics.Contains(cosmetic.Key))
+                    sb.Append(cosmetic.Value);
             }
 
-            if (chkCos.Value)
-            {
-                foreach (var i in r.cosmeticSet.items)
-                {
-                    if (!i.isNullItem && !r.concatStringOfCosmeticsAllowed.Contains(i.itemName))
-                    {
-                        sb.Append("[<color=#008000>COSMETX</color>] ");
-                        break;
-                    }
-                }
-            }
             return sb.ToString();
         }
 
-        
-        private Dictionary<string, string> PullMods()
+        private void RefreshCache()
         {
-            var d = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (_chkSpecial.Value || _chkMods.Value)
+                StartCoroutine(UpdCacheCoroutine());
+        }
+
+        private IEnumerator UpdCacheCoroutine()
+        {
+            yield return _waitForEndOfFrame;
+
+            if (_chkSpecial.Value)
+                _specialCache = SpecialCache();
+        }
+
+        private Dictionary<string, string> SpecialCache()
+        {
+            var cache = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             try
             {
-                string url = "";
-                using (WebClient w = new WebClient())
+                string url = "https://raw.githubusercontent.com/GoldenIsAProtogen/GoldensGorillaNametags/main/People.txt";
+                using (var client = new WebClient())
                 {
-                    string content = w.DownloadString(url);
-                    string[] lines = content.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
-
-                    foreach (string rawLine in lines)
-                    {
-                        string line = rawLine.Replace("\r", "").Replace("\n", "");
-                        string[] parts = line.Split(new[] { '=' }, 2);
-                        if (parts.Length == 2)
-                        {
-                            string key = parts[0];
-                            if (key.EndsWith("\\n")) key = key.Replace("\\n", "\n"); 
-                            d[key.Trim().ToLower()] = parts[1].Trim();
-                        }
-                    }
+                    string content = client.DownloadString(url);
+                    ParseKeyValue(content, cache);
                 }
             }
             catch { }
-            return d;
+            return cache;
         }
-        */
+
+        private void ParseKeyValue(string content, Dictionary<string, string> dictionary)
+        {
+            var lines = content.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (string line in lines)
+            {
+                var parts = line.Split(new[] { '$' }, 2);
+                if (parts.Length == 2)
+                {
+                    string key = parts[0].Trim().Replace("\\n", "\n");
+                    dictionary[key] = parts[1].Trim();
+                }
+            }
+        }
+
+        private IEnumerator ImageCoroutine(string url, Action<Texture2D> onComplete)
+        {
+            using (var request = UnityWebRequestTexture.GetTexture(url))
+            {
+                yield return request.SendWebRequest();
+
+                if (request.result == UnityWebRequest.Result.Success)
+                {
+                    var texture = DownloadHandlerTexture.GetContent(request);
+                    texture.filterMode = FilterMode.Point;
+                    onComplete(texture);
+                }
+            }
+        }
         #endregion
     }
 }
