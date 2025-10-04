@@ -43,6 +43,6 @@ You can customise the mod through the config file. Below are some of the setting
 - Quality → Toggle higher-quality nametags
 - Update Int → Control update interval for nametags (lower = smoother, higher = less performance cost)
 
-## Other:
+## Miscellaneous:
 
 - GFriends → Enable integration with GFriends
