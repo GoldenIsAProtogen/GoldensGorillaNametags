@@ -24,7 +24,7 @@ You can customise the mod through the config file. Below are some of the setting
 - Special → Highlight special players
 - FPS → Display FPS/HZ
 - Cosmetics → Show cosmetics (on/off)
-- Ping (WIP) → Doesnt work currently
+- Ping → Estimates players ping
 
 ## Outlines:
 
