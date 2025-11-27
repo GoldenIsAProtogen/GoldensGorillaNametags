@@ -53,6 +53,8 @@ public class Plugin : BaseUnityPlugin
                              UsePlatIcons,
                              PlatIconClr;
 
+    private bool tagsEnabled;
+
     public ConfigEntry<float> TagSize, TagHeight, UpdInt, OutlineThick, IconSize;
 
     public static Plugin Instance { get; private set; }
@@ -99,6 +101,22 @@ public class Plugin : BaseUnityPlugin
         lastUpdT = currentTime;
     }
 
+    private void OnEnable()
+    {
+        tagsEnabled = true;
+
+        if (TagManager.Instance != null)
+            TagManager.Instance.ForceClearTags();
+    }
+
+    private void OnDisable()
+    {
+        tagsEnabled = false;
+
+        if (TagManager.Instance != null)
+            TagManager.Instance.ForceClearTags();
+    }
+
     private void OnPlayerSpawned()
     {
         componentHolder = new GameObject("GoldensGorillaNametags Component Holder");
@@ -119,7 +137,7 @@ public class Plugin : BaseUnityPlugin
         OutlineQual    = Config.Bind("Outlines", "Quality",   false,       "Outline quality");
         OutlineClr     = Config.Bind("Outlines", "Color",     Color.black, "Outline color");
         OutlineThick   = Config.Bind("Outlines", "Thickness", 0.0025f,     "Outline thickness");
-        
+
         CheckSpecial   = Config.Bind("Checks", "Special",   true,  "Check special players");
         CheckFps       = Config.Bind("Checks", "FPS",       true,  "Check FPS");
         CheckPing      = Config.Bind("Checks", "Ping",      false, "Check Ping (Ping estimation, not 100% accurate)");
@@ -128,7 +146,7 @@ public class Plugin : BaseUnityPlugin
 
         UsePlatIcons = Config.Bind("Platform", "UseIcons",  true,   "Show platform as icons instead of text");
         IconSize     = Config.Bind("Platform", "Icon Size", 0.015f, "Size of the platform icons");
-        PlatIconClr  = Config.Bind("Platform", "Icon Colored", true,
+        PlatIconClr = Config.Bind("Platform", "Icon Colored", true,
                 "If the icons platform icons are colored or not");
 
         IconLocation = Config.Bind("Platform", "Icon Location", "left",

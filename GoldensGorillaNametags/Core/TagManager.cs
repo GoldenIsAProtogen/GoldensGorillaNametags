@@ -176,6 +176,29 @@ public class TagManager : MonoBehaviour
         UpdOutline(data);
     }
 
+    public void ForceClearTags()
+    {
+        foreach (KeyValuePair<VRRig, NametagData> kv in tagMap)
+        {
+            VRRig       rig  = kv.Key;
+            NametagData data = kv.Value;
+
+            if (data != null)
+            {
+                if (data.ImgUpdCoroutine != null)
+                    StopCoroutine(data.ImgUpdCoroutine);
+
+                CleanupOutline(data);
+
+                if (data.Container != null)
+                    Destroy(data.Container);
+            }
+        }
+
+        tagMap.Clear();
+        lastTagUpd.Clear();
+    }
+
     private string CreateTagTxt(VRRig rig)
     {
         StringBuilder stringBuilder = new(128);
@@ -193,13 +216,13 @@ public class TagManager : MonoBehaviour
 
             if (Plugin.Instance.CheckFps.Value)
             {
-                int fps  = rig.fps;
+                int fps = rig.fps;
                 line += $"<color={TagUtils.Instance.FpsClr(fps)}>{fps}</color>";
             }
 
             if (Plugin.Instance.CheckPing.Value)
             {
-                int    ping      = rig.ping();
+                int ping = rig.ping();
 
                 string pingText  = ping == int.MaxValue ? "N/A" : ping.ToString();
                 string pingColor = ping == int.MaxValue ? "#AB0080" : TagUtils.Instance.PingClr(ping);
