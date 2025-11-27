@@ -73,6 +73,9 @@ public class Plugin : BaseUnityPlugin
 
     public void Update()
     {
+    	if (!tagsEnabled)
+            return;
+
         if (Time.time - lastCacheT >= CacheInt)
         {
             TagUtils.Instance.RefreshCache();
