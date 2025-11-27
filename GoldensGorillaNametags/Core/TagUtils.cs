@@ -54,12 +54,12 @@ public class TagUtils : MonoBehaviour
 
     public void InitPlatIcons()
     {
-        StartCoroutine(Instance.ImageCoroutine($"{Plugin.Giturl}computer.png",       tex => cTex  = tex));
-        StartCoroutine(Instance.ImageCoroutine($"{Plugin.Giturl}steam.png",          tex => sTex  = tex));
-        StartCoroutine(Instance.ImageCoroutine($"{Plugin.Giturl}meta.png",           tex => mTex  = tex));
-        StartCoroutine(Instance.ImageCoroutine($"{Plugin.Giturl}Computer_White.png", tex => wCTex = tex));
-        StartCoroutine(Instance.ImageCoroutine($"{Plugin.Giturl}Steam_White.png",    tex => wSTex = tex));
-        StartCoroutine(Instance.ImageCoroutine($"{Plugin.Giturl}Meta_White.png",     tex => wMTex = tex));
+        StartCoroutine(ImageCoroutine($"{Plugin.Giturl}computer.png",       tex => cTex  = tex));
+        StartCoroutine(ImageCoroutine($"{Plugin.Giturl}steam.png",          tex => sTex  = tex));
+        StartCoroutine(ImageCoroutine($"{Plugin.Giturl}meta.png",           tex => mTex  = tex));
+        StartCoroutine(ImageCoroutine($"{Plugin.Giturl}Computer_White.png", tex => wCTex = tex));
+        StartCoroutine(ImageCoroutine($"{Plugin.Giturl}Steam_White.png",    tex => wSTex = tex));
+        StartCoroutine(ImageCoroutine($"{Plugin.Giturl}Meta_White.png",     tex => wMTex = tex));
     }
 
     public IEnumerator UpdPlatIconCoroutine(VRRig r, NametagData data)
