@@ -73,7 +73,7 @@ public class Plugin : BaseUnityPlugin
 
     public void Update()
     {
-    	if (!tagsEnabled)
+        if (!tagsEnabled)
             return;
 
         if (Time.time - lastCacheT >= CacheInt)
