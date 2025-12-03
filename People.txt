@@ -8,12 +8,6 @@ AE10C04744CCF6E7$<color=#800000>Shadow (Silly)</color>
 A48ECC7AFC42BFF9$<color=#800080>Lapis</color>
 6AD6E9601D6C233C$<color=#8e8eff>PAMbbL7Y (A super cool dev)</color>
 D3D6416209181E93$<color=#550071>JUNETHE1ST (cool guy)</color>
-665F44D434C97891$<color=#301934>exops</color>
-E354E818871BD1D8$<color=#FFFFFF>Dane (Dev9998)</color>
-91902A4E2624708F$<color=#FFFFFF>Dane (Dev9998)</color>
-FBE3EE50747CB892$Kaylie (GizmoGoat)
-42D7D32651E93866$<color=#392a69>Graze (Sergal)</color>
-D322FC7F6A9875DB$DecalFree
 DEC3BA23750F6C04$Shiny
 8D04594C36758368$Shiny
 FA76E41A15BDD9C9$Shiny
@@ -24,6 +18,12 @@ B5F9797560165521$<color=#5865F2>Zlothy</color>
 AC9E6B9DCA7BAC76$<color=#5865F2>Zlothy</color>
 96A75B23C8BBB4C9$<color=#5865F2>Zlothy</color>
 C77E23EEDAECB338$<color=#5865F2>Zlothy</color>
+E354E818871BD1D8$<color=#FFFFFF>Dane (Dev9998)</color>
+91902A4E2624708F$<color=#FFFFFF>Dane (Dev9998)</color>
+665F44D434C97891$<color=#301934>exops</color>
+FBE3EE50747CB892$Kaylie (GizmoGoat)
+42D7D32651E93866$<color=#392a69>Graze (Sergal)</color>
+D322FC7F6A9875DB$DecalFree
 83DC5E2D0C03B463$<color=#0000FF>Steve (Blue)</color>
 DAD8F5689EC1FC51$elligurt
 28579AFACDE1FB19$PepsiDee
