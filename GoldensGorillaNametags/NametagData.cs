@@ -10,7 +10,6 @@ public class NametagData
     public TextMeshPro       MainTxt          { get; set; }
     public GameObject        PlatIconObj      { get; set; }
     public SpriteRenderer    PlatIconRenderer { get; set; }
-    public List<TextMeshPro> OutlineClones    { get; }      = new();
     public string            LastTxt          { get; set; } = string.Empty;
     public Coroutine         ImgUpdCoroutine  { get; set; }
     public Texture2D         CurrentPlatTex   { get; set; }

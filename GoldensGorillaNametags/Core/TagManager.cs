@@ -207,7 +207,7 @@ public class TagManager : MonoBehaviour
         {
             string specialTag = TagUtils.Instance.SpecialTag(rig);
             if (!string.IsNullOrEmpty(specialTag))
-                stringBuilder.AppendLine(specialTag);
+                stringBuilder.AppendLine($"<size=70%>{specialTag}</size>");
         }
 
         if (Plugin.Instance.CheckFps.Value || Plugin.Instance.CheckPing.Value)
@@ -284,10 +284,20 @@ public class TagManager : MonoBehaviour
                 return GFriends.m_clrPlayedRecently;
         }
 
-        if (r.mainSkin.material.name.Contains("It"))
-            return new Color(1f, 0f, 0f);
+        //Paintbrawl Eliminated
+        if (r.mainSkin.material.name.Contains("paintsplatterneutral"))
+            return new Color(1f, 1f, 1f);
 
-        return r.mainSkin.material.name.Contains("fected") ? new Color(1f, 0.5f, 0f) : r.playerColor;
+        //Paintbrawl Unattackable (after balloon is popped)
+        if (r.mainSkin.material.name.Contains("neutralstunned"))
+            return new Color(.478f, .247f, 0f);
+
+        //Rock Monke
+        if (r.mainSkin.material.name.Contains("It"))
+            return new Color(.459f, .027f, 0f);
+
+        //Lava Monke
+        return r.mainSkin.material.name.Contains("fected") ? new Color(1f, 0.5f, 0.102f) : r.playerColor;
     }
 
     private void UpdOutline(NametagData data)
@@ -297,67 +307,74 @@ public class TagManager : MonoBehaviour
         if (!Plugin.Instance.OutlineEnabled.Value || data.MainTxt == null)
             return;
 
-        CreateOutlineClones(data);
+        ApplyOutline(data.MainTxt, Plugin.Instance.OutlineThick.Value, Plugin.Instance.OutlineClr.Value,
+                Plugin.Instance.OutlineQual.Value);
     }
 
     private void CleanupOutline(NametagData data)
     {
-        if (data.OutlineClones == null)
+        if (data == null || data.MainTxt == null)
             return;
 
-        foreach (TextMeshPro outline in data.OutlineClones.Where(outline => outline            != null &&
-                                                                            outline.gameObject != null))
-            Destroy(outline.gameObject);
+        Material currentMat = data.MainTxt.fontMaterial;
+        Material sharedMat  = data.MainTxt.fontSharedMaterial;
 
-        data.OutlineClones.Clear();
-    }
-
-    private void CreateOutlineClones(NametagData data)
-    {
-        float thickness = Plugin.Instance.OutlineThick.Value;
-        Vector3[] offsets = Plugin.Instance.OutlineQual.Value
-                                    ? CreateHighQualOutline(thickness)
-                                    : CreateOutline(thickness);
-
-        string plainTxt = StripClrTags(data.MainTxt.text);
-
-        foreach (Vector3 offset in offsets)
+        if (currentMat != null && sharedMat != null && currentMat != sharedMat)
         {
-            TextMeshPro outline = CreateOutlineClone(data.MainTxt, offset, plainTxt);
-            data.OutlineClones.Add(outline);
+            data.MainTxt.fontMaterial = sharedMat;
+
+            try
+            {
+                Destroy(currentMat);
+            }
+            catch
+            {
+                // ignored
+            }
         }
     }
 
-    private Vector3[] CreateOutline(float thickness) => new[]
+    private void ApplyOutline(TextMeshPro txt, float thickness, Color color, bool highQual)
     {
-            new Vector3(0f,        thickness, 0f), new Vector3(0f,         -thickness, 0f),
-            new Vector3(thickness, 0f,        0f), new Vector3(-thickness, 0f,         0f),
-    };
+        if (txt == null) return;
 
-    private Vector3[] CreateHighQualOutline(float thickness) => new[]
-    {
-            new Vector3(0f,        thickness,  0f), new Vector3(0f,         -thickness, 0f),
-            new Vector3(thickness, 0f,         0f), new Vector3(-thickness, 0f,         0f),
-            new Vector3(thickness, thickness,  0f), new Vector3(-thickness, thickness,  0f),
-            new Vector3(thickness, -thickness, 0f), new Vector3(-thickness, -thickness, 0f),
-    };
+        Material __base = txt.fontSharedMaterial;
 
-    private TextMeshPro CreateOutlineClone(TextMeshPro original, Vector3 offset, string txt)
-    {
-        TextMeshPro clone = Instantiate(original, original.transform.parent);
-        clone.text                    = txt;
-        clone.transform.localPosition = original.transform.localPosition + offset;
-        clone.transform.localRotation = original.transform.localRotation;
-        clone.transform.localScale    = original.transform.localScale;
-        clone.color                   = Plugin.Instance.OutlineClr.Value;
-        clone.sortingOrder            = original.sortingOrder - 1;
+        if (__base == null) return;
 
-        CanvasRenderer canvasRenderer = clone.GetComponent<CanvasRenderer>();
-        if (canvasRenderer != null)
-            canvasRenderer.cull = false;
+        Material __instance = txt.fontMaterial;
 
-        return clone;
+        if (__instance == null || __instance == __base)
+        {
+            __instance       = new Material(__base);
+            __instance.name  = __base.name + " (Instance)";
+            txt.fontMaterial = __instance;
+        }
+
+        __instance.SetFloat(ShaderUtilities.ID_OutlineWidth, thickness);
+        __instance.SetColor(ShaderUtilities.ID_OutlineColor, color);
+
+        float softness = highQual ? 0.35f : 0f;
+        try
+        {
+            __instance.SetFloat(ShaderUtilities.ID_OutlineSoftness, softness);
+        }
+        catch
+        {
+            // ignored
+        }
+
+        if (softness > 0f)
+        {
+            try
+            {
+                float dilate = Mathf.Clamp(thickness * 0.5f, 0f, 0.2f);
+                __instance.SetFloat(ShaderUtilities.ID_FaceDilate, dilate);
+            }
+            catch
+            {
+                // ignored
+            }
+        }
     }
-
-    private string StripClrTags(string txt) => Plugin.Instance.ClrTagRegex.Replace(txt, "");
 }
