@@ -44,7 +44,7 @@ public class TagUtils : MonoBehaviour
             { "LMAAQ.", "[<color=#ffffff>ST</color>]" }, { "LMAAV.", "[<color=#ffffff>HTS</color>]" },
     };
 
-    private Texture2D cTex, sTex, mTex, wCTex, wSTex, wMTex;
+    private Texture2D computerTex, steamTex, metaTex, wComputerTex, wSteamTex, wMetaTex;
 
     private Dictionary<string, string> specialCache;
 
@@ -52,18 +52,18 @@ public class TagUtils : MonoBehaviour
 
     public void InitPlatIcons()
     {
-        StartCoroutine(ImageCoroutine($"{Plugin.Giturl}computer.png",       tex => cTex  = tex));
-        StartCoroutine(ImageCoroutine($"{Plugin.Giturl}steam.png",          tex => sTex  = tex));
-        StartCoroutine(ImageCoroutine($"{Plugin.Giturl}meta.png",           tex => mTex  = tex));
-        StartCoroutine(ImageCoroutine($"{Plugin.Giturl}Computer_White.png", tex => wCTex = tex));
-        StartCoroutine(ImageCoroutine($"{Plugin.Giturl}Steam_White.png",    tex => wSTex = tex));
-        StartCoroutine(ImageCoroutine($"{Plugin.Giturl}Meta_White.png",     tex => wMTex = tex));
+        StartCoroutine(ImageCoroutine($"{Plugin.Giturl}computer.png",       tex => computerTex  = tex));
+        StartCoroutine(ImageCoroutine($"{Plugin.Giturl}steam.png",          tex => steamTex  = tex));
+        StartCoroutine(ImageCoroutine($"{Plugin.Giturl}meta.png",           tex => metaTex  = tex));
+        StartCoroutine(ImageCoroutine($"{Plugin.Giturl}Computer_White.png", tex => wComputerTex = tex));
+        StartCoroutine(ImageCoroutine($"{Plugin.Giturl}Steam_White.png",    tex => wSteamTex = tex));
+        StartCoroutine(ImageCoroutine($"{Plugin.Giturl}Meta_White.png",     tex => wMetaTex = tex));
     }
 
     public IEnumerator UpdPlatIconCoroutine(VRRig r, NametagData data)
     {
-        while (cTex  == null || sTex == null || mTex == null || wCTex == null || wSTex == null ||
-               wMTex == null)
+        while (computerTex  == null || steamTex == null || metaTex == null || wComputerTex == null || wSteamTex == null ||
+               wMetaTex == null)
             yield return null;
 
         yield return new WaitForSeconds(2f);
@@ -171,21 +171,21 @@ public class TagUtils : MonoBehaviour
         if (Plugin.Instance.PlatIconClr.Value)
         {
             if (cosmetics.Contains("S. FIRST LOGIN"))
-                return sTex;
+                return steamTex;
 
             if (cosmetics.Contains("FIRST LOGIN") || propCount >= 2)
-                return cTex;
+                return computerTex;
 
-            return mTex;
+            return metaTex;
         }
 
         if (cosmetics.Contains("S. FIRST LOGIN"))
-            return wSTex;
+            return wSteamTex;
 
         if (cosmetics.Contains("FIRST LOGIN") || propCount >= 2)
-            return wCTex;
+            return wComputerTex;
 
-        return wMTex;
+        return wMetaTex;
     }
 
     public string CosmeticTag(VRRig r)

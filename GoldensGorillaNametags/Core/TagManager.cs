@@ -10,7 +10,7 @@ namespace GoldensGorillaNametags.Core;
 
 public class TagManager : MonoBehaviour
 {
-    private const           float                    TagUpdateTime = 0.3f;
+    private const           float                    TagUpdTime = 0.3f;
     public static           TagManager               Instance;
     private static readonly Vector3                  BaseScale  = Vector3.one * 0.8f;
     private static readonly Vector3                  ImgBasePos = new(0f, 0.85f, 0f);
@@ -46,7 +46,7 @@ public class TagManager : MonoBehaviour
         }
     }
 
-    public void CreateTags(HashSet<VRRig> validRigs)
+    public void CreateTagmap(HashSet<VRRig> validRigs)
     {
         foreach (VRRig r in validRigs.Where(r => r != null && !r.isOfflineVRRig && r.OwningNetPlayer != null)
                                      .Where(r => !tagMap.ContainsKey(r)))
@@ -122,7 +122,7 @@ public class TagManager : MonoBehaviour
 
             Cam(data.Container.transform);
 
-            if (!lastTagUpd.ContainsKey(r) || currentTime - lastTagUpd[r] >= TagUpdateTime)
+            if (!lastTagUpd.ContainsKey(r) || currentTime - lastTagUpd[r] >= TagUpdTime)
             {
                 UpdTagContent(r, data);
                 lastTagUpd[r] = currentTime;
@@ -272,7 +272,7 @@ public class TagManager : MonoBehaviour
 
     private Color PlrClr(VRRig r)
     {
-        if (Plugin.Instance.Gf.Value && r.OwningNetPlayer != null)
+        if (Plugin.Instance.Gfriends.Value && r.OwningNetPlayer != null)
         {
             if (GFriendUtils.Verified(r.OwningNetPlayer))
                 return GFriends.m_clrVerified;
@@ -307,8 +307,8 @@ public class TagManager : MonoBehaviour
         if (!Plugin.Instance.OutlineEnabled.Value || data.MainTxt == null)
             return;
 
-        ApplyOutline(data.MainTxt, Plugin.Instance.OutlineThick.Value, Plugin.Instance.OutlineClr.Value,
-                Plugin.Instance.OutlineQual.Value);
+        ApplyOutline(data.MainTxt, Plugin.Instance.OutlineThickness.Value, Plugin.Instance.OutlineClr.Value,
+                Plugin.Instance.OutlineQuality.Value);
     }
 
     private void CleanupOutline(NametagData data)
