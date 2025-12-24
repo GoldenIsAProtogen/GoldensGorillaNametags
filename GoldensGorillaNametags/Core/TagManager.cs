@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using GoldensGorillaNametags.Utils;
 using TMPro;
 using UnityEngine;
@@ -10,11 +11,12 @@ namespace GoldensGorillaNametags.Core;
 
 public class TagManager : MonoBehaviour
 {
-    private const           float                    TagUpdTime = 0.3f;
-    public static           TagManager               Instance;
-    private static readonly Vector3                  BaseScale  = Vector3.one * 0.8f;
-    private static readonly Vector3                  ImgBasePos = new(0f, 0.85f, 0f);
-    private readonly        Dictionary<VRRig, float> lastTagUpd = new();
+    private const           float      TagUpdTime = 0.3f;
+    public static           TagManager Instance;
+    private static readonly Vector3    BaseScale  = Vector3.one * 0.8f;
+    private static readonly Vector3    ImgBasePos = new(0f, 0.85f, 0f);
+
+    private readonly Dictionary<VRRig, float> lastTagUpd = new();
 
     private readonly Dictionary<VRRig, NametagData> tagMap = new();
 
@@ -108,7 +110,7 @@ public class TagManager : MonoBehaviour
         txt.richText         = true;
     }
 
-    public void UpdateTags()
+    public void UpdTags()
     {
         float currentTime = Time.time;
 
@@ -151,11 +153,11 @@ public class TagManager : MonoBehaviour
 
     private void UpdPlatIcon(NametagData data)
     {
-        if (data.PlatIconRenderer == null)
-            return;
-
-        bool shouldBeVisible = Plugin.Instance.UsePlatIcons.Value && data.CurrentPlatTex != null;
-        data.PlatIconRenderer.gameObject.SetActive(shouldBeVisible);
+        if (data.PlatIconRenderer != null)
+        {
+            bool shouldBeVisible = Plugin.Instance.UsePlatIcons.Value && data.CurrentPlatTex != null;
+            data.PlatIconRenderer.gameObject.SetActive(shouldBeVisible);
+        }
     }
 
     private void UpdTagContent(VRRig r, NametagData data)
@@ -238,9 +240,9 @@ public class TagManager : MonoBehaviour
 
         string platformTag = Plugin.Instance.CheckPlat.Value && !Plugin.Instance.UsePlatIcons.Value
                                      ? TagUtils.Instance.PlatTag(rig)
-                                     : "";
+                                     : string.Empty;
 
-        string cosmeticsTag = Plugin.Instance.CheckCosmetics.Value ? TagUtils.Instance.CosmeticTag(rig) : "";
+        string cosmeticsTag = Plugin.Instance.CheckCosmetics.Value ? TagUtils.Instance.CosmeticTag(rig) : string.Empty;
 
         if (Plugin.Instance.CheckPlat.Value && !Plugin.Instance.UsePlatIcons.Value &&
             Plugin.Instance.CheckCosmetics.Value)
@@ -258,10 +260,32 @@ public class TagManager : MonoBehaviour
             stringBuilder.Append($"<color=white>{platformTag}</color>\n");
         }
 
-        string plrName = rig.OwningNetPlayer.NickName;
-        stringBuilder.AppendLine(plrName.Length > 12 ? plrName.Substring(0, 12) + "..." : plrName);
+        string SanitizePlayerName(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return "";
 
-        return stringBuilder.ToString();
+            return Regex.Replace(name, "<.*?>", string.Empty);
+        }
+
+        string plrName = rig.OwningNetPlayer.NickName;
+        plrName = SanitizePlayerName(plrName);
+
+        string displayName = plrName.Length > 12 ? plrName.Substring(0, 12) + "..." : plrName;
+
+        if (Plugin.Instance.TextFormatScopeCfg.Value == Plugin.TextFormatScope.NameOnly)
+            displayName = Plugin.Instance.TextFormat(displayName);
+
+        stringBuilder.AppendLine(displayName);
+
+        return FinalizeFormat(stringBuilder.ToString());
+    }
+
+    private string FinalizeFormat(string text)
+    {
+        if (Plugin.Instance.TextFormatScopeCfg.Value == Plugin.TextFormatScope.AllText)
+            return Plugin.Instance.TextFormat(text);
+
+        return text;
     }
 
     private void UpdTxtClr(VRRig r, TextMeshPro txt)

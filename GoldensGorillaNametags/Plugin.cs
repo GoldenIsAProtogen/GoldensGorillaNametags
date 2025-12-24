@@ -42,10 +42,10 @@ public class Plugin : BaseUnityPlugin
         Italic    = 1 << 1,
         Underline = 1 << 2,
     }
-    
+
     private const float CacheInt = 150f;
 
-    public static readonly string Giturl =
+    public static readonly string MainGitUrl =
             "https://raw.githubusercontent.com/GoldenIsAProtogen/GoldensGorillaNametags/main/";
 
     [FormerlySerializedAs("cineCam")] public Camera CineCam;
@@ -55,7 +55,7 @@ public class Plugin : BaseUnityPlugin
 
     public string FormatPrefix = "";
     public string FormatSuffix = "";
-    
+
     public readonly Regex ClrTagRegex = new(@"<color=[^>]+>|</color>", RegexOptions.Compiled);
 
     public readonly Dictionary<VRRig, int> playerPing = new();
@@ -86,8 +86,7 @@ public class Plugin : BaseUnityPlugin
     public ConfigEntry<TextFormatScope> TextFormatScopeCfg;
 
     public ConfigEntry<TextStyle> TextStyleCfg;
-    
-    
+
     public static Plugin Instance { get; private set; }
 
     private void Start()
@@ -132,7 +131,7 @@ public class Plugin : BaseUnityPlugin
         HashSet<VRRig> currentRigs = new(GorillaParent.instance.vrrigs ?? new List<VRRig>());
         TagManager.Instance.CleanupTags(currentRigs);
         TagManager.Instance.CreateTagmap(currentRigs);
-        TagManager.Instance.UpdateTags();
+        TagManager.Instance.UpdTags();
         lastUpdT = currentTime;
     }
 
@@ -169,17 +168,18 @@ public class Plugin : BaseUnityPlugin
         TxtQuality   = Config.Bind("Tags", "Quality",    false, "Nametag quality");
         TextStyleCfg = Config.Bind("Tags", "Style", TextStyle.Normal,
                 "Text style");
+
         TextCaseCfg = Config.Bind("Tags", "Case", TextCase.Normal,
                 "Text casing: Normal, Uppercase, Lowercase");
 
         TextFormatScopeCfg = Config.Bind("Tags", "Format Scope", TextFormatScope.NameOnly,
                 "Choose whether formatting applies only to player names or to all text."
         );
-        
+
         OutlineEnabled = Config.Bind("Outlines", "Enabled",   true,        "Tag outlines");
         OutlineQuality    = Config.Bind("Outlines", "Quality",   false,       "Outline quality");
         OutlineClr     = Config.Bind("Outlines", "Color",     Color.black, "Outline color");
-        OutlineThickness   = Config.Bind("Outlines", "Thickness", 0.0025f,     "Outline thickness");
+        OutlineThickness   = Config.Bind("Outlines", "Thickness", 0.3f,        "Outline thickness");
 
         CheckSpecial   = Config.Bind("Checks", "Special",   true,  "Check special players");
         CheckFps       = Config.Bind("Checks", "FPS",       true,  "Check FPS");
@@ -188,7 +188,7 @@ public class Plugin : BaseUnityPlugin
         CheckPlat      = Config.Bind("Checks", "Platform",  true,  "Check platform");
 
         UsePlatIcons = Config.Bind("Platform", "UseIcons",  true,   "Show platform as icons instead of text");
-        IconSize     = Config.Bind("Platform", "Icon Size", 0.015f, "Size of the platform icons");
+        IconSize     = Config.Bind("Platform", "Icon Size", 0.010f, "Size of the platform icons");
         PlatIconClr = Config.Bind("Platform", "Icon Colored", true,
                 "If the icons platform icons are colored or not");
 
@@ -258,7 +258,7 @@ public class Plugin : BaseUnityPlugin
         Harmony harmony = new(Constants.Guid);
         harmony.PatchAll(Assembly.GetExecutingAssembly());
     }
-    
+
     public void Formatting()
     {
         FormatPrefix = "";
@@ -284,7 +284,7 @@ public class Plugin : BaseUnityPlugin
             FormatSuffix =  "</u>" + FormatSuffix;
         }
     }
-    
+
     public string TextFormat(string text)
     {
         TextCase c = TextCaseCfg.Value;

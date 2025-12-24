@@ -5,5 +5,5 @@ internal class Constants
     //MAJOR.MINOR.PATCH
     public const string Guid    = "golden.gorillanametags";
     public const string Name    = "GoldensGorillaNametags";
-    public const string Version = "4.3.0";
+    public const string Version = "4.3.1";
 }

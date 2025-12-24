@@ -52,18 +52,19 @@ public class TagUtils : MonoBehaviour
 
     public void InitPlatIcons()
     {
-        StartCoroutine(ImageCoroutine($"{Plugin.Giturl}computer.png",       tex => computerTex  = tex));
-        StartCoroutine(ImageCoroutine($"{Plugin.Giturl}steam.png",          tex => steamTex  = tex));
-        StartCoroutine(ImageCoroutine($"{Plugin.Giturl}meta.png",           tex => metaTex  = tex));
-        StartCoroutine(ImageCoroutine($"{Plugin.Giturl}Computer_White.png", tex => wComputerTex = tex));
-        StartCoroutine(ImageCoroutine($"{Plugin.Giturl}Steam_White.png",    tex => wSteamTex = tex));
-        StartCoroutine(ImageCoroutine($"{Plugin.Giturl}Meta_White.png",     tex => wMetaTex = tex));
+        StartCoroutine(ImageCoroutine($"{Plugin.MainGitUrl}computer.png",       tex => computerTex  = tex));
+        StartCoroutine(ImageCoroutine($"{Plugin.MainGitUrl}steam.png",          tex => steamTex     = tex));
+        StartCoroutine(ImageCoroutine($"{Plugin.MainGitUrl}meta.png",           tex => metaTex      = tex));
+        StartCoroutine(ImageCoroutine($"{Plugin.MainGitUrl}Computer_White.png", tex => wComputerTex = tex));
+        StartCoroutine(ImageCoroutine($"{Plugin.MainGitUrl}Steam_White.png",    tex => wSteamTex    = tex));
+        StartCoroutine(ImageCoroutine($"{Plugin.MainGitUrl}Meta_White.png",     tex => wMetaTex     = tex));
     }
 
     public IEnumerator UpdPlatIconCoroutine(VRRig r, NametagData data)
     {
-        while (computerTex  == null || steamTex == null || metaTex == null || wComputerTex == null || wSteamTex == null ||
-               wMetaTex == null)
+        while (computerTex == null || steamTex == null || metaTex == null || wComputerTex == null ||
+               wSteamTex   == null ||
+               wMetaTex    == null)
             yield return null;
 
         yield return new WaitForSeconds(2f);
@@ -222,7 +223,7 @@ public class TagUtils : MonoBehaviour
         try
         {
             using WebClient client  = new();
-            string          content = client.DownloadString($"{Plugin.Giturl}People.txt");
+            string          content = client.DownloadString($"{Plugin.MainGitUrl}People.txt");
             KeyValShit(content, cache);
         }
         catch
