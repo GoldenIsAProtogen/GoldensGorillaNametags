@@ -37,7 +37,7 @@ internal class GFriendUtils
 
     public static bool RecentlyPlayedWith(NetPlayer player) => Installed("net.rusjj.gorillafriends") &&
                                                                Main.HasPlayedWithUsRecently(
-                                                                       player.UserId) == Main.eRecentlyPlayed.Before;
+                                                                       player.UserId).recentlyPlayed == Main.eRecentlyPlayed.Before;
 
     public static bool Verified(NetPlayer player) =>
             Installed("net.rusjj.gorillafriends") && Main.IsVerified(player.UserId);
