@@ -1,8 +1,4 @@
-# GoldensGorillaNametags 
-<a href="https://github.com/GoldenIsAProtogen/GoldensGorillaNametags/releases/latest">
-    <img src="https://img.shields.io/github/downloads/GoldenIsAProtogen/GoldensGorillaNametags/total?label=Downloads&style=for-the-badge&color=lime" alt="Downloads">
-    <img src="https://img.shields.io/github/v/release/GoldenIsAProtogen/GoldensGorillaNametags?label=Version&style=for-the-badge&color=blue" alt="Version">
-</a>
+# GoldensGorillaNametags <a href="https://github.com/GoldenIsAProtogen/GoldensGorillaNametags/releases/latest"> <img src="https://img.shields.io/github/downloads/GoldenIsAProtogen/GoldensGorillaNametags/total?label=Downloads&style=for-the-badge&color=lime" alt="Downloads"> <img src="https://img.shields.io/github/v/release/GoldenIsAProtogen/GoldensGorillaNametags?label=Version&style=for-the-badge&color=blue" alt="Version"> </a>
 GoldensGorillaNametags is a Gorilla Tag mod that displays player names, platforms, FPS/refresh rate, cosmetics, and more – with lots of customizability to fit your style.
 You can change nearly every aspect of nametags: size, outlines, height, icons, update speed, and more. It also supports special features like GFriends integration and platform detection.
 
