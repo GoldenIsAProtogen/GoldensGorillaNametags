@@ -1,6 +1,6 @@
 # GoldensGorillaNametags
 GoldensGorillaNametags is a Gorilla Tag mod that displays player names, platforms, FPS/refresh rate, cosmetics, and more – with lots of customizability to fit your style.
-You can change nearly every aspect of nametags: size, outlines, height, icons, update speed, and more. It also supports special features like GFriends integration and platform detection.
+You can change nearly every aspect of nametags: size, outlines, height, icons, update speed, and more. It also supports special features like GFriends integration and platform detection.<br>
 <sub>If you're looking to check the players mods as well, please see my other repository: [<b>Property Checking Verison</b>](https://github.com/GoldenIsAProtogen/GoldensGorillaNametagsMC)</sub>
 
 If you want your UserID to be added or removed, message me on Discord: golden.is.a.protogen<br>
