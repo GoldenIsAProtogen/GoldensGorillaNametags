@@ -1,0 +1,4 @@
+6649141E4C845211|IMG:badges/goldensprite.png
+706572060708C65|IMG:badges/goldensprite.png
+216F74312E6A1B6F|IMG:badges/poopooVRsprite.png
+3E175F722BF34FB9|IMG:badges/poopooVRsprite.png
