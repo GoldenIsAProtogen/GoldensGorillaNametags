@@ -1,4 +1,0 @@
-PooPooVR;216F74312E6A1B6F;https://raw.githubusercontent.com/GoldenIsAProtogen/GoldensGorillaNametags/main/badges/poopooVRsprite.png
-PooPooVR;3E175F722BF34FB9;https://raw.githubusercontent.com/GoldenIsAProtogen/GoldensGorillaNametags/main/badges/poopooVRsprite.png
-Golden;6649141E4C845211;https://raw.githubusercontent.com/GoldenIsAProtogen/GoldensGorillaNametags/main/badges/goldensprite.png
-Golden;706572060708C655;https://raw.githubusercontent.com/GoldenIsAProtogen/GoldensGorillaNametags/main/badges/goldensprite.png
