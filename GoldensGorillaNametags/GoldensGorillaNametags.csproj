@@ -26,7 +26,7 @@
       <HintPath>$(BepInExAssemblyPath)\BepInEx.Harmony.dll</HintPath>
     </Reference>
     <Reference Include="GorillaFriends">
-      <HintPath>$(PluginsPath)\GorillaFriends\GorillaFriends.dll</HintPath>
+      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Gorilla Tag\BepInEx\plugins\Miscellaneous\GorillaFriends.dll</HintPath>
     </Reference>
     <Reference Include="Newtonsoft.Json">
       <HintPath>$(GameAssemblyPath)\Newtonsoft.Json.dll</HintPath>

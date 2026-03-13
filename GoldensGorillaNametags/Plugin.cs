@@ -45,11 +45,9 @@ public class Plugin : BaseUnityPlugin
 
     private const float CacheInt = 150f;
 
-    public static readonly string MainGitUrl =
-            "https://raw.githubusercontent.com/GoldenIsAProtogen/GoldensGorillaNametags/main/";
+    public static readonly string MainGitUrl = "https://raw.githubusercontent.com/GoldenIsAProtogen/GoldensGorillaNametags/main/";
 
     [FormerlySerializedAs("cineCam")] public Camera CineCam;
-
     [FormerlySerializedAs("font")]    public TMP_FontAsset Font;
     [FormerlySerializedAs("mainCam")] public Transform     MainCam;
 
@@ -60,32 +58,35 @@ public class Plugin : BaseUnityPlugin
 
     public readonly Dictionary<VRRig, int> playerPing = new();
     private         GameObject             componentHolder;
-    public          ConfigEntry<string>    IconLocation;
+    private         bool                   tagsEnabled;
 
-    private float lastCacheT, lastUpdT;
+    private float lastCacheTime,
+                  lastUpdateTime;
+                          
+    public ConfigEntry<string> IconLocation;
 
-    public ConfigEntry<Color> OutlineClr;
+    public ConfigEntry<Color> OutlineColor;
 
     public ConfigEntry<bool> OutlineEnabled,
                              OutlineQuality,
-                             CheckPlat,
+                             CheckPlatform,
                              CheckSpecial,
                              CheckFps,
                              CheckPing,
                              CheckCosmetics,
                              Gfriends,
-                             TxtQuality,
-                             UsePlatIcons,
-                             PlatIconClr;
+                             TextQuality,
+                             UsePlatIcons;
 
-    private bool tagsEnabled;
-
-    public ConfigEntry<float>    TagSize, TagHeight, UpdInt, OutlineThickness, IconSize;
-    public ConfigEntry<TextCase> TextCaseCfg;
-
-    public ConfigEntry<TextFormatScope> TextFormatScopeCfg;
-
-    public ConfigEntry<TextStyle> TextStyleCfg;
+    public ConfigEntry<float> TagSize, 
+                              TagHeight, 
+                              UpdateInt, 
+                              OutlineThickness, 
+                              IconSize;
+    
+    public ConfigEntry<TextCase>        TextCaseConfig;
+    public ConfigEntry<TextFormatScope> TextFormatScopeConfig;
+    public ConfigEntry<TextStyle>       TextStyleConfig;
 
     public static Plugin Instance { get; private set; }
 
@@ -93,12 +94,12 @@ public class Plugin : BaseUnityPlugin
     {
         Instance = this;
         GorillaTagger.OnPlayerSpawned(OnInit);
-        InitCfg();
+        InitConfig();
         InitFont();
         InitCam();
         InitHarmony();
         Formatting();
-        TagUtils.Instance.InitPlatIcons();
+        TagUtils.Instance.DownloadPlatformIcons();
         TagUtils.Instance.RefreshCache();
     }
 
@@ -107,10 +108,10 @@ public class Plugin : BaseUnityPlugin
         if (!tagsEnabled)
             return;
 
-        if (Time.time - lastCacheT >= CacheInt)
+        if (Time.time - lastCacheTime >= CacheInt)
         {
             TagUtils.Instance.RefreshCache();
-            lastCacheT = Time.time;
+            lastCacheTime = Time.time;
         }
 
         if (MainCam == null || Camera.main != null)
@@ -118,21 +119,21 @@ public class Plugin : BaseUnityPlugin
 
         float currentTime = Time.time;
 
-        if (!(currentTime - lastUpdT >= UpdInt.Value))
+        if (!(currentTime - lastUpdateTime >= UpdateInt.Value))
             return;
 
-        foreach (VRRig r in GorillaParent.instance.vrrigs
+        foreach (VRRig r in VRRigCache.ActiveRigs
                                          .Where(r => r != null && !r.isOfflineVRRig && r.mainSkin?.material != null)
                                          .Where(r => r.mainSkin.material.name.Contains("gorilla_body") &&
                                                      r.mainSkin.material.shader ==
                                                      Shader.Find("GorillaTag/UberShader")))
             r.mainSkin.material.color = r.playerColor;
 
-        HashSet<VRRig> currentRigs = new(GorillaParent.instance.vrrigs ?? new List<VRRig>());
+        HashSet<VRRig> currentRigs = new(VRRigCache.ActiveRigs ?? new List<VRRig>());
         TagManager.Instance.CleanupTags(currentRigs);
         TagManager.Instance.CreateTagmap(currentRigs);
-        TagManager.Instance.UpdTags();
-        lastUpdT = currentTime;
+        TagManager.Instance.UpdateTags();
+        lastUpdateTime = currentTime;
     }
 
     private void OnEnable()
@@ -140,7 +141,7 @@ public class Plugin : BaseUnityPlugin
         tagsEnabled = true;
 
         if (TagManager.Instance != null)
-            TagManager.Instance.ForceClearTags();
+            TagManager.Instance.ClearTags();
     }
 
     private void OnDisable()
@@ -148,7 +149,7 @@ public class Plugin : BaseUnityPlugin
         tagsEnabled = false;
 
         if (TagManager.Instance != null)
-            TagManager.Instance.ForceClearTags();
+            TagManager.Instance.ClearTags();
     }
 
     private void OnInit()
@@ -160,42 +161,32 @@ public class Plugin : BaseUnityPlugin
         PlayerSerializePatch.OnPlayerSerialize += rig => { playerPing[rig] = GetTruePing(rig); };
     }
 
-    private void InitCfg()
+    private void InitConfig()
     {
-        TagSize   = Config.Bind("Tags", "Size",       1f,    "Nametag size");
-        TagHeight = Config.Bind("Tags", "Height",     0.65f, "Nametag height");
-        UpdInt    = Config.Bind("Tags", "Update Int", 0.01f, "Tag update interval");
-        TxtQuality   = Config.Bind("Tags", "Quality",    false, "Nametag quality");
-        TextStyleCfg = Config.Bind("Tags", "Style", TextStyle.Normal,
-                "Text style");
+        TagSize               = Config.Bind("Tags", "Size", 2.5f, "Nametag size");
+        TagHeight             = Config.Bind("Tags", "Height", 0.85f, "Nametag height");
+        UpdateInt             = Config.Bind("Tags", "Update Int", 0.01f, "Tag update interval");
+        TextQuality           = Config.Bind("Tags", "Quality", false, "Nametag quality");
+        TextStyleConfig       = Config.Bind("Tags", "Style", TextStyle.Normal, "Text style");
+        TextCaseConfig        = Config.Bind("Tags", "Case", TextCase.Normal, "Text casing: Normal, Uppercase, Lowercase");
+        TextFormatScopeConfig = Config.Bind("Tags", "Format Scope", TextFormatScope.NameOnly, "Choose whether formatting applies only to player names or to all text.");
 
-        TextCaseCfg = Config.Bind("Tags", "Case", TextCase.Normal,
-                "Text casing: Normal, Uppercase, Lowercase");
-
-        TextFormatScopeCfg = Config.Bind("Tags", "Format Scope", TextFormatScope.NameOnly,
-                "Choose whether formatting applies only to player names or to all text."
-        );
-
-        OutlineEnabled = Config.Bind("Outlines", "Enabled",   true,        "Tag outlines");
-        OutlineQuality    = Config.Bind("Outlines", "Quality",   false,       "Outline quality");
-        OutlineClr     = Config.Bind("Outlines", "Color",     Color.black, "Outline color");
-        OutlineThickness   = Config.Bind("Outlines", "Thickness", 0.3f,        "Outline thickness");
-
+        OutlineEnabled   = Config.Bind("Outlines", "Enabled",   true,        "Tag outlines");
+        OutlineQuality   = Config.Bind("Outlines", "Quality",   false,       "Outline quality");
+        OutlineColor     = Config.Bind("Outlines", "Color",     Color.black, "Outline color");
+        OutlineThickness = Config.Bind("Outlines", "Thickness", 0.4f,        "Outline thickness");
+        
         CheckSpecial   = Config.Bind("Checks", "Special",   true,  "Check special players");
         CheckFps       = Config.Bind("Checks", "FPS",       true,  "Check FPS");
         CheckPing      = Config.Bind("Checks", "Ping",      false, "Check Ping (Ping estimation, not 100% accurate)");
         CheckCosmetics = Config.Bind("Checks", "Cosmetics", true,  "Check cosmetics");
-        CheckPlat      = Config.Bind("Checks", "Platform",  true,  "Check platform");
+        CheckPlatform  = Config.Bind("Checks", "Platform",  true,  "Check platform");
 
-        UsePlatIcons = Config.Bind("Platform", "UseIcons",  true,   "Show platform as icons instead of text");
-        IconSize     = Config.Bind("Platform", "Icon Size", 0.010f, "Size of the platform icons");
-        PlatIconClr = Config.Bind("Platform", "Icon Colored", true,
-                "If the icons platform icons are colored or not");
+        UsePlatIcons = Config.Bind("Platform", "UseIcons",     false,   "Show platform as icons instead of text"); // Currently Doesn't work, plz no use
+        IconSize     = Config.Bind("Platform", "Icon Size",    0.010f, "Size of the platform icons");
+        IconLocation = Config.Bind("Platform", "Icon Location", "left", "Platform icon position\nAcceptable Values: left, right");
 
-        IconLocation = Config.Bind("Platform", "Icon Location", "left",
-                "Platform icon position\nAcceptable Values: top, bottom, left, right");
-
-        Gfriends = Config.Bind("Miscellaneous", "GFriends", false, "Use GFriends");
+        Gfriends = Config.Bind("Integrations", "GFriends", false, "Use GFriends");
     }
 
     private int GetTruePing(VRRig rig)
@@ -213,20 +204,14 @@ public class Plugin : BaseUnityPlugin
             Directory.CreateDirectory(fontDir);
 
         string fontPath = Directory.EnumerateFiles(fontDir, "*.*")
-                                   .FirstOrDefault(path =>
-                                                           path.EndsWith(".ttf",
-                                                                   StringComparison.OrdinalIgnoreCase) ||
-                                                           path.EndsWith(".otf",
-                                                                   StringComparison.OrdinalIgnoreCase));
+                                   .FirstOrDefault(path => path.EndsWith(".ttf", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".otf", StringComparison.OrdinalIgnoreCase));
 
         try
         {
             if (fontPath != null)
             {
                 Font unityFont = new(fontPath);
-                Font = TxtQuality.Value
-                               ? TMP_FontAsset.CreateFontAsset(unityFont, 120, 12, GlyphRenderMode.SDFAA, 4096, 4096)
-                               : TMP_FontAsset.CreateFontAsset(unityFont);
+                Font = TextQuality.Value ? TMP_FontAsset.CreateFontAsset(unityFont, 120, 12, GlyphRenderMode.SDFAA, 4096, 4096) : TMP_FontAsset.CreateFontAsset(unityFont);
 
                 Font.material.shader = Shader.Find("TextMeshPro/Distance Field");
             }
@@ -264,7 +249,7 @@ public class Plugin : BaseUnityPlugin
         FormatPrefix = "";
         FormatSuffix = "";
 
-        TextStyle style = TextStyleCfg.Value;
+        TextStyle style = TextStyleConfig.Value;
 
         if (style.HasFlag(TextStyle.Bold))
         {
@@ -287,10 +272,14 @@ public class Plugin : BaseUnityPlugin
 
     public string TextFormat(string text)
     {
-        TextCase c = TextCaseCfg.Value;
+        TextCase c = TextCaseConfig.Value;
 
-        if (c      == TextCase.Uppercase) text = text.ToUpperInvariant();
-        else if (c == TextCase.Lowercase) text = text.ToLowerInvariant();
+        text = c switch
+               {
+                       TextCase.Uppercase => text.ToUpperInvariant(),
+                       TextCase.Lowercase => text.ToLowerInvariant(),
+                       _                  => text,
+               };
 
         if (FormatPrefix.Length == 0)
             return text;

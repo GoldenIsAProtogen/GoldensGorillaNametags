@@ -11,6 +11,5 @@ public static class PlayerSerializePatch
     public static Action<VRRig> OnPlayerSerialize;
     public static bool          Prefix() => !StopSerialization;
 
-    public static void Postfix(VRRig __instance, InputStruct data) =>
-            OnPlayerSerialize?.Invoke(__instance);
+    public static void Postfix(VRRig __instance, InputStruct data) => OnPlayerSerialize?.Invoke(__instance);
 }
