@@ -13,45 +13,65 @@ If you want your UserID to be added or removed, message me on Discord: golden.is
     <img src="https://img.shields.io/badge/Status-Active-success?style=for-the-badge" alt="Status: Active">
 </a>
 
-## Features:
+### Features
 
-- Show player names, platform, FPS/HZ, cosmetics
+- Player names, platform, FPS/HZ, cosmetics
 - Customizable outlines (color, thickness, quality)
 - Adjustable nametag size, height, and update speed
 - Platform icons instead of text
-- GFriends support
-- Toggle special player highlighting
+- GorillaFriends support
+- Special player highlighting
 - Lightweight & optimized
 
-## Customizability
+### Customizability
 
-You can customise the mod through the config file. Below are some of the settings you can adjust:
+You can customise the mod through the config file (located here: Gorilla Tag/Bepinex/config). Below is the list of customizable settings:
 
-## General:
+## Categories:
 
-- Platform   → Show platform info (text or icons)
-- Special    → Highlight special players
-- FPS        → Display FPS/HZ
-- Cosmetics  → Show cosmetics (on/off)
-- Ping       → Estimates players ping
+- Tags
+- Outlines
+- Checks
+- Platform
+- Integrations
+- GUI // Not added yet
+
+## Tags:
+
+- Tag Size → How large it appears
+- Tag Height → How high the tag is on the players rig
+- Update integer → The refresh rate of the tag
+- Text Quality → Attempts to make the text higher quality (barely does anything, being removed soon)
+- Text Style → Underlining, boldness, italics
+- Text Case → Normal, uppercase, lowercase
+- Text Format → Which section is affect by Text Case and Style (Name & all)
 
 ## Outlines:
 
-- Enabled → Toggle nametag outlines
-- Quality → High-quality outlines (slightly heavier on performance)
-- Color → Choose outline color (000000FF = black)
-- Thickness → Adjust outline thickness
+- Enabled → Toggles nametag outlines
+- Quality → High-quality outlines (MIGHT remove this, since they just look better)
+- Color → Coloring of the outline (000000FF = black)
+- Thickness → Thickness of the outline
+
+## Checks:
+
+- Special Players → Highlights special players
+- FPS → Shows you the players FPS/Hz (refresh rate)
+- Ping → Displays an ESTIMATION of the players ping
+- Cosmetics → Displays any special cosmetics player has
+- Platform → Shows what platform the player is on
   
-## Platform Display:
+## Platform:
 
-- UseIcons → Show platform as icons instead of text
-- Icon Size → Scale platform icons
-- Tags (Nametag Settings)
-- Size → Scale overall nametag size
-- Height → Adjust nametag vertical offset above player
-- Quality → Toggle higher-quality nametags
-- Update Int → Control update interval for nametags (lower = smoother, higher = less performance cost)
+- PlatformIcon → Uses platform icon instead of text
+- Icon Size → Size of the platform icons
+- Icon location → where the icon is at
 
-## Miscellaneous:
+## Integrations:
 
 - GFriends → Enable integration with GFriends
+
+// Not added yet
+## GUI:
+
+- Toggle Button → What button toggles the GUI on & off (super buggy at the moment bc I'm giga stupid)
