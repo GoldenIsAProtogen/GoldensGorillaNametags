@@ -34,7 +34,7 @@ You can customise the mod through the config file (located here: Gorilla Tag/Bep
 - Checks
 - Platform
 - Integrations
-- GUI // Not added yet
+- GUI // NOT ADDED YET
 
 ## Tags:
 
@@ -71,7 +71,6 @@ You can customise the mod through the config file (located here: Gorilla Tag/Bep
 
 - GFriends → Enable integration with GFriends
 
-// Not added yet
-## GUI:
+## GUI: // NOT ADDED YET
 
 - Toggle Button → What button toggles the GUI on & off (super buggy at the moment bc I'm giga stupid)
