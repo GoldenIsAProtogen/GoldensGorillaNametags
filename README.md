@@ -29,13 +29,11 @@ You can customise the mod through the config file. Below are some of the setting
 
 ## General:
 
-`
-Platform   → Show platform info (text or icons)
-Special    → Highlight special players
-FPS        → Display FPS/HZ
-Cosmetics  → Show cosmetics (on/off)
-Ping       → Estimates players ping
-`
+- Platform   → Show platform info (text or icons)
+- Special    → Highlight special players
+- FPS        → Display FPS/HZ
+- Cosmetics  → Show cosmetics (on/off)
+- Ping       → Estimates players ping
 
 ## Outlines:
 
