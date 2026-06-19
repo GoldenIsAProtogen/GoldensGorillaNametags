@@ -9,13 +9,14 @@ using System.Threading.Tasks;
 using PlayFab;
 using PlayFab.ClientModels;
 using UnityEngine;
-using UnityEngine.Networking;
 using Hashtable = ExitGames.Client.Photon.Hashtable;
 
 namespace GoldensGorillaNametags.Core;
 
 public class TagUtils : MonoBehaviour
 {
+#region ==-== Fields & Init ==-==
+
     public static TagUtils Instance;
 
     private static readonly Dictionary<int, string> FpsColors = new()
@@ -34,25 +35,17 @@ public class TagUtils : MonoBehaviour
 
     private static readonly Dictionary<string, string> PlatColors = new()
     {
-            { "STEAMVR", "#ffff00" },
-            { "QUESTPC", "#ffaa00" },
-            { "PCVR", "#ff0000" },
-            { "QUEST", "#00ff00" },
-            { "UNKNOWN", "#808080"},
+            { "STEAMVR", "#ffff00" }, { "QUESTPC", "#ffaa00" }, { "PCVR", "#ff0000" },
+            { "QUEST", "#00ff00" }, { "UNKNOWN", "#808080" },
     };
 
     private static readonly Dictionary<string, string> SpecialCosmetics = new()
     {
-            { "LBANI.", "[<color=#fcc200>AAC</color>]" }, { "LBADE.", "[<color=#fcc200>FP</color>]" },
-            { "LBAGS.", "[<color=#fcc200>ILL</color>]" }, { "LBAAK.", "[<color=#ff0000>S</color>]" },
-            { "LMAPY.", "[<color=#c80000>FS</color>]" }, { "LBAAD.", "[<color=#960000>A</color>]" },
-            { "LMAGB.", "[<color=#ffffff>CG</color>]" }, { "LMAKH.", "[<color=#ffffff>ZC</color>]" },
-            { "LMAJD.", "[<color=#ffffff>DK</color>]" }, { "LMAHF.", "[<color=#ffffff>CFP</color>]" },
-            { "LMAAQ.", "[<color=#ffffff>ST</color>]" }, { "LMAAV.", "[<color=#ffffff>HTS</color>]" },
+            { "LBANI.", "[<color=#fcc200>AAC</color>]" }, { "LBADE.", "[<color=#fcc200>FP</color>]" }, //Another Axiom Creator Badge, Finger Painter Badge
+            { "LBAGS.", "[<color=#fcc200>ILL</color>]" }, { "LBAAK.", "[<color=#ff0000>S</color>]" },  //Illustrator Badge, Stick
+            { "LMAPY.", "[<color=#c80000>FS</color>]" }, { "LBAAD.", "[<color=#960000>A</color>]" },   //Fire Stick, Admin Badge
     };
 
-    private Texture2D computerTex, steamTex, metaTex;
-    
     private static readonly DateTime                     AddedSteamPaymentDate  = new(2023, 02, 06);
     private static readonly Dictionary<string, DateTime> PlayerCreationDateDict = new();
 
@@ -60,16 +53,14 @@ public class TagUtils : MonoBehaviour
 
     private void Awake() => Instance = this;
 
-    public void DownloadPlatformIcons()
-    {
-        StartCoroutine(ImageCoroutine($"{Plugin.MainGitUrl}computer.png",       tex => computerTex  = tex));
-        StartCoroutine(ImageCoroutine($"{Plugin.MainGitUrl}steam.png",          tex => steamTex     = tex));
-        StartCoroutine(ImageCoroutine($"{Plugin.MainGitUrl}meta.png",           tex => metaTex      = tex));
-    }
+#endregion
+
+#region ==-== Icons ==-==
 
     public IEnumerator UpdatePlatformIconCoroutine(VRRig rig, NametagData data)
     {
-        while (computerTex == null || steamTex == null || metaTex == null)
+        while (Plugin.Instance.SteamTex   == null || Plugin.Instance.PcvrTex  == null ||
+               Plugin.Instance.QuestpcTex == null || Plugin.Instance.QuestTex == null)
             yield return null;
 
         yield return new WaitForSeconds(2f);
@@ -102,10 +93,7 @@ public class TagUtils : MonoBehaviour
 
         if (newPlatTex != null)
         {
-            data.PlatformIconRenderer.sprite = Sprite.Create(newPlatTex,
-                    new Rect(0, 0, newPlatTex.width, newPlatTex.height),
-                    Vector2.one * 0.5f);
-
+            data.PlatformIconRenderer.sprite = Sprite.Create(newPlatTex, new Rect(0, 0, newPlatTex.width, newPlatTex.height), Vector2.one * 0.5f);
             data.PlatformIconRenderer.gameObject.SetActive(true);
         }
         else
@@ -114,6 +102,33 @@ public class TagUtils : MonoBehaviour
             data.PlatformIconRenderer.gameObject.SetActive(false);
         }
     }
+
+    private Texture2D PlatformTex(VRRig rig)
+    {
+        string cosmetics = rig._playerOwnedCosmetics.Concat();
+        int    propCount = rig.Creator.GetPlayerRef().CustomProperties.Count;
+
+        if (rig.initializedCosmetics)
+        {
+            if (cosmetics.Contains("S. FIRST LOGIN")) return Plugin.Instance.SteamTex;
+            if (cosmetics.Contains("FIRST LOGIN") || cosmetics.Contains("game-purchase-bundle"))
+                return Plugin.Instance.QuestpcTex;
+
+            if (propCount > 1 || rig.currentRankedSubTierPC > 0) return Plugin.Instance.PcvrTex;
+            if (rig.currentRankedSubTierQuest > 0) return Plugin.Instance.QuestTex;
+
+            DateTime? playerCreationDate = GetPlayerCreationDate(rig.Creator.UserId);
+
+            if (playerCreationDate.HasValue && playerCreationDate.Value > AddedSteamPaymentDate)
+                return Plugin.Instance.QuestTex;
+        }
+
+        return null;
+    }
+
+#endregion
+
+#region ==-== Tag Content ==-==
 
     public string FpsColor(int fps)
     {
@@ -154,73 +169,24 @@ public class TagUtils : MonoBehaviour
     // ReSharper disable Unity.PerformanceAnalysis
     private string PlatformKey(string cosmetics, VRRig rig)
     {
-        
         int propCount = rig.Creator.GetPlayerRef().CustomProperties.Count;
 
         if (rig.initializedCosmetics)
         {
             if (cosmetics.Contains("S. FIRST LOGIN")) return "STEAMVR";
             if (cosmetics.Contains("FIRST LOGIN") || cosmetics.Contains("game-purchase-bundle")) return "QUESTPC";
-            if (propCount > 1 || rig.currentRankedSubTierPC > 0) return "PCVR";
+            if (propCount > 1                     || rig.currentRankedSubTierPC > 0) return "PCVR";
             if (rig.currentRankedSubTierQuest > 0) return "QUEST";
-            
+
             DateTime? playerCreationDate = GetPlayerCreationDate(rig.Creator.UserId);
-            
+
             if (playerCreationDate.HasValue && playerCreationDate.Value > AddedSteamPaymentDate)
                 return "QUEST";
 
             return "UNKNOWN";
         }
-        
-        return "LOADING..."; // it also shows this when someone doesnt have cosmetics on
-    }
-    
-    private DateTime? GetPlayerCreationDate(string playFabId)
-    {
-        if (PlayerCreationDateDict.TryGetValue(playFabId, out DateTime cachedDate))
-            return cachedDate;
 
-        _ = FetchCreationDateAsync(playFabId);
-        return null;
-    }
-
-    private async Task FetchCreationDateAsync(string playFabId)
-    {
-        if (PlayerCreationDateDict.ContainsKey(playFabId))
-            return;
-
-        TaskCompletionSource<GetAccountInfoResult> tcs = new();
-
-        PlayFabClientAPI.GetAccountInfo(new GetAccountInfoRequest { PlayFabId = playFabId, },
-                result => tcs.SetResult(result),
-                error  => tcs.SetException(new Exception(error.ErrorMessage)));
-
-        try
-        {
-            GetAccountInfoResult result = await tcs.Task;
-            PlayerCreationDateDict[playFabId] = result.AccountInfo.Created;
-        }
-        catch
-        {
-            // ignored
-        }
-    }
-
-    private Texture2D PlatformTex(VRRig rig)
-    {
-        if (rig?._playerOwnedCosmetics.Concat() == null)
-            return null;
-
-        string cosmetics = rig._playerOwnedCosmetics.Concat();
-        int    propCount = rig.Creator.GetPlayerRef().CustomProperties.Count;
-
-        if (cosmetics.Contains("S. FIRST LOGIN"))
-            return steamTex;
-
-        if (cosmetics.Contains("FIRST LOGIN") || propCount >= 2)
-            return computerTex;
-
-        return metaTex;
+        return "LOADING...";
     }
 
     public string SpecialCosmeticsTag(VRRig rig)
@@ -239,7 +205,7 @@ public class TagUtils : MonoBehaviour
 
     public string PlayerModsTag(VRRig rig)
     {
-        if (!Plugin.Instance.CheckMods.Value || modsCache == null)
+        if (!Plugin.Instance.CheckModLists.Value || modsCache == null)
             return string.Empty;
 
         StringBuilder sb    = new(128);
@@ -247,20 +213,33 @@ public class TagUtils : MonoBehaviour
 
         foreach (DictionaryEntry entry in props)
         {
-            string key = entry.Key.ToString();
+            string _firstkey = entry.Key?.ToString() ?? "";
 
-            if (!modsCache.TryGetValue(key, out string tag))
+            if (_firstkey.Contains("wyndigo", StringComparison.OrdinalIgnoreCase))
+            {
+                string afterWyndigo = _firstkey
+                                     .Substring(_firstkey.IndexOf("wyndigo", StringComparison.OrdinalIgnoreCase) +
+                                                "wyndigo".Length).Trim();
+
+                sb.Append($"[<color=#ff0000>WYNDIGO</color> {afterWyndigo.ToLower()}] ");
+
+                continue;
+            }
+
+            string _secondkey = NormalizeString(entry.Key.ToString());
+
+            if (!modsCache.TryGetValue(_secondkey, out string tag))
                 continue;
 
             if (tag.Contains("{0}") && !ModSpoofCheck(entry.Value))
                 continue;
 
-            tag = GetModVersion(key, tag, entry.Value);
+            tag = GetModVersion(_secondkey, tag, entry.Value);
             sb.Append(tag + " ");
         }
 
-        if (Plugin.Instance.CheckCosmetics.Value && HasCosmetx(rig))
-            sb.Append("[<color=#FF0000>COSMETX</color>]");
+        if (rig.initializedCosmetics && Plugin.Instance.CheckCheats.Value && HasCosmetx(rig))
+            sb.Append("[<color=#ff0000>COSMETX</color>]");
 
         return sb.ToString().Trim();
     }
@@ -318,9 +297,7 @@ public class TagUtils : MonoBehaviour
                 default:
                 {
                     if (value != null)
-                    {
                         version = value.ToString();
-                    }
 
                     break;
                 }
@@ -338,22 +315,7 @@ public class TagUtils : MonoBehaviour
                 if (valStr.Contains("whoisthatmonke", StringComparison.OrdinalIgnoreCase))
                     return "[<color=#808080>WITM!</color>]";
 
-                if (valStr.Contains("whoischeating", StringComparison.OrdinalIgnoreCase))
-                    return "[<color=#00A0FF>WIC</color>]";
-
-                return "[WI]";
-
-            case "":
-                if (valStr.Contains("wyndigo", StringComparison.OrdinalIgnoreCase))
-                {
-                    string tryGetVer = valStr
-                                      .Replace("wyndigo", "", StringComparison.OrdinalIgnoreCase)
-                                      .Trim();
-
-                    return $"[<color=#FF0000>WYNDIGO</color> {tryGetVer}]";
-                }
-
-                return tag;
+                return valStr.Contains("whoischeating", StringComparison.OrdinalIgnoreCase) ? "[<color=#00a0ff>WIC</color>]" : "[WI]";
 
             default:
                 return tag;
@@ -362,13 +324,16 @@ public class TagUtils : MonoBehaviour
 
     private bool HasCosmetx(VRRig rig)
     {
-        return rig.cosmeticSet.items.Any(item => !item.isNullItem &&
-                                                 rig._playerOwnedCosmetics.Concat()?.Contains(item.itemName) != true);
+        return rig.cosmeticSet.items.Any(item => !item.isNullItem && rig._playerOwnedCosmetics.Concat()?.Contains(item.itemName) != true);
     }
+
+#endregion
+
+#region ==-== Cache ==-==
 
     public void RefreshCache()
     {
-        if (Plugin.Instance.CheckSpecial.Value || Plugin.Instance.CheckMods.Value)
+        if (Plugin.Instance.CheckSpecial.Value || Plugin.Instance.CheckModLists.Value)
             StartCoroutine(UpdateCacheCoroutine());
     }
 
@@ -379,7 +344,7 @@ public class TagUtils : MonoBehaviour
         if (Plugin.Instance.CheckSpecial.Value)
             specialCache = SpecialPlayerCache();
 
-        if (Plugin.Instance.CheckMods.Value)
+        if (Plugin.Instance.CheckModLists.Value)
             modsCache = ModsCache();
     }
 
@@ -403,11 +368,38 @@ public class TagUtils : MonoBehaviour
     private Dictionary<string, string> ModsCache()
     {
         Dictionary<string, string> cache = new(StringComparer.OrdinalIgnoreCase);
+
         try
         {
-            using WebClient client  = new();
-            string          content = client.DownloadString($"{Plugin.ModsGitUrl}");
-            ParseKeyValues(content, cache);
+            using WebClient client = new();
+
+            if (Plugin.Instance.CheckMods.Value)
+            {
+                string modFile = Plugin.Instance.Abbreviated.Value ? "Mods.txt" : "Mods_unabbreviated.txt";
+                try
+                {
+                    string content = client.DownloadString($"{Plugin.ModsGitUrl}{modFile}");
+                    ParseKeyValues(content, cache);
+                }
+                catch
+                {
+                    // ignored
+                }
+            }
+
+            if (Plugin.Instance.CheckCheats.Value)
+            {
+                string cheatFile = "Cheats.txt";
+                try
+                {
+                    string content = client.DownloadString($"{Plugin.ModsGitUrl}{cheatFile}");
+                    ParseKeyValues(content, cache);
+                }
+                catch
+                {
+                    // ignored
+                }
+            }
         }
         catch
         {
@@ -419,18 +411,31 @@ public class TagUtils : MonoBehaviour
 
     private void ParseKeyValues(string content, Dictionary<string, string> dictionary)
     {
-        string[] lines = content.Split(new[] { '\n', '\r', }, StringSplitOptions.RemoveEmptyEntries);
+        string[] lines = content.Split(['\n', '\r',], StringSplitOptions.RemoveEmptyEntries);
         foreach (string line in lines)
         {
-            string[] parts = line.Split(new[] { '$', }, 2, StringSplitOptions.None);
+            string[] parts = line.Split(['$',], 2, StringSplitOptions.None);
             if (parts.Length == 2)
             {
-                string key = parts[0];
+                string key = NormalizeString(parts[0]);
                 dictionary[key] = parts[1].Trim();
             }
         }
     }
-    
+
+    private static string NormalizeString(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return string.Empty;
+
+        input = Regex.Replace(input, @"[\x00-\x1F\x7F]", "");
+        input = Regex.Replace(input, @"\\[nrtvbfa\\]+",  "");
+        input = input.Replace("\\", "");
+        input = Regex.Replace(input, @"\s+", " ");
+
+        return input.Trim().ToLowerInvariant();
+    }
+
     private bool ModSpoofCheck(object value)
     {
         switch (value)
@@ -448,8 +453,7 @@ public class TagUtils : MonoBehaviour
             case Hashtable ht:
             {
                 foreach (DictionaryEntry e in ht)
-                    if (e.Key is string k &&
-                        string.Equals(k, "version", StringComparison.OrdinalIgnoreCase))
+                    if (e.Key is string k && string.Equals(k, "version", StringComparison.OrdinalIgnoreCase))
                         return true;
 
                 return false;
@@ -458,8 +462,7 @@ public class TagUtils : MonoBehaviour
             case IDictionary dict:
             {
                 foreach (DictionaryEntry e in dict)
-                    if (e.Key is string k &&
-                        string.Equals(k, "version", StringComparison.OrdinalIgnoreCase))
+                    if (e.Key is string k && string.Equals(k, "version", StringComparison.OrdinalIgnoreCase))
                         return true;
 
                 return false;
@@ -470,17 +473,37 @@ public class TagUtils : MonoBehaviour
         }
     }
 
-    private IEnumerator ImageCoroutine(string url, Action<Texture2D> onComplete)
+    private DateTime? GetPlayerCreationDate(string playFabId)
     {
-        using UnityWebRequest request = UnityWebRequestTexture.GetTexture(url);
+        if (PlayerCreationDateDict.TryGetValue(playFabId, out DateTime cachedDate))
+            return cachedDate;
 
-        yield return request.SendWebRequest();
+        _ = FetchCreationDateAsync(playFabId);
 
-        if (request.result != UnityWebRequest.Result.Success)
-            yield break;
-
-        Texture2D tex = DownloadHandlerTexture.GetContent(request);
-        tex.filterMode = FilterMode.Point;
-        onComplete(tex);
+        return null;
     }
+
+    private async Task FetchCreationDateAsync(string playFabId)
+    {
+        if (PlayerCreationDateDict.ContainsKey(playFabId))
+            return;
+
+        TaskCompletionSource<GetAccountInfoResult> tcs = new();
+
+        PlayFabClientAPI.GetAccountInfo(new GetAccountInfoRequest { PlayFabId = playFabId, },
+                result => tcs.SetResult(result),
+                error => tcs.SetException(new Exception(error.ErrorMessage)));
+
+        try
+        {
+            GetAccountInfoResult result = await tcs.Task;
+            PlayerCreationDateDict[playFabId] = result.AccountInfo.Created;
+        }
+        catch
+        {
+            // ignored
+        }
+    }
+
+#endregion
 }
