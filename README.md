@@ -7,11 +7,9 @@ Nearly every aspect of nametags can be adjusted: size, outlines, height, icons, 
 
 # Important Information
 // ===== - ===== - ===== \\\
-<p align="center">
-    <a href="https://github.com/GoldenIsAProtogen/GoldensGorillaNametags/releases/latest"><img src="https://img.shields.io/github/downloads/GoldenIsAProtogen/GoldensGorillaNametagsMC/total?label=Downloads&style=for-the-badge&color=green" alt="Downloads"></a>
-    <a href="https://github.com/GoldenIsAProtogen/GoldensGorillaNametags/releases/latest"><img src="https://img.shields.io/github/v/release/GoldenIsAProtogen/GoldensGorillaNametagsMC?label=Version&style=for-the-badge&color=blue" alt="Version"></a>
-    <a href="https://github.com/GoldenIsAProtogen/GoldensGorillaNametags/releases/latest"><img src="https://img.shields.io/badge/Status-Active-success?style=for-the-badge" alt="Status: Active"></a>
-</p>
+<a href="https://github.com/GoldenIsAProtogen/GoldensGorillaNametags/releases/latest"><img src="https://img.shields.io/github/downloads/GoldenIsAProtogen/GoldensGorillaNametagsMC/total?label=Downloads&style=for-the-badge&color=green" alt="Downloads"></a>
+<a href="https://github.com/GoldenIsAProtogen/GoldensGorillaNametags/releases/latest"><img src="https://img.shields.io/github/v/release/GoldenIsAProtogen/GoldensGorillaNametagsMC?label=Version&style=for-the-badge&color=blue" alt="Version"></a>
+<a href="https://github.com/GoldenIsAProtogen/GoldensGorillaNametags/releases/latest"><img src="https://img.shields.io/badge/Status-Active-success?style=for-the-badge" alt="Status: Active"></a>
 
 Want a mod/userid removed/added? Send me a message: <br>
 \\\ ===== - ===== - ===== //
