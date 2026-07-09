@@ -2,7 +2,7 @@
 // ===== - ===== - ===== \\\
 GoldensGorillaNametags is a Gorilla Tag mod that displays detailed player information such as names, platforms, FPS/refresh rate, cosmetics, and more - all with extensive customization to fit your preferred style.
 
-Nearly every aspect of nametags can be adjusted: size, outlines, height, icons, update speed, and additional visual options. It also includes special features like GorillaFriends integration and advanced platform detection.
+Nearly every aspect of nametags can be adjusted: size, outlines, height, icons, update speed, and additional visual options. It also includes special features like GorillaFriends integration and advanced platform detection.<br>
 \\\ ===== - ===== - ===== //
 
 # Important Information
@@ -13,7 +13,7 @@ Nearly every aspect of nametags can be adjusted: size, outlines, height, icons, 
     <a href="https://github.com/GoldenIsAProtogen/GoldensGorillaNametags/releases/latest"><img src="https://img.shields.io/badge/Status-Active-success?style=for-the-badge" alt="Status: Active"></a>
 </p>
 
-Want a mod/userid removed/added? Send me a message: 
+Want a mod/userid removed/added? Send me a message: <br>
 \\\ ===== - ===== - ===== //
 
 # Features
@@ -50,12 +50,12 @@ To configure the mod, press "F4" in game or go to "(GorillaTag Directory)\BepInE
 
 - Integrations
   - GorillaFriends integration 
-
+<br>
 \\\ ===== - ===== - ===== //
 
 # Contact & Discord
 // ===== - ===== - ===== \\\
 Discord Server: [link](https://discord.gg/UMgGBVuZm6)
 
-Discord Account: [link](https://discord.com/users/1221658936441049090)
+Discord Account: [link](https://discord.com/users/1221658936441049090)<br>
 \\\ ===== - ===== - ===== //
