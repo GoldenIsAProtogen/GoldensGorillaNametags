@@ -19,9 +19,7 @@ Want a mod/userid removed/added? Send me a message: [Contact & Discord](https://
 # Features
 // ===== - ===== - ===== \\\\<br>
 To configure the mod, press "F4" in game or go to "(GorillaTag Directory)\BepInEx\config\golden.gorillanametags.cfg"
-<div>
 <sub>List below of configurable things</sub>
-</div>
 
 - Checks
   - Mods
