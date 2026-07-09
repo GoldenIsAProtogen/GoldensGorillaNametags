@@ -11,7 +11,7 @@ Nearly every aspect of nametags can be adjusted: size, outlines, height, icons, 
 <a href="https://github.com/GoldenIsAProtogen/GoldensGorillaNametags/releases/latest"><img src="https://img.shields.io/github/v/release/GoldenIsAProtogen/GoldensGorillaNametagsMC?label=Version&style=for-the-badge&color=blue" alt="Version"></a>
 <a href="https://github.com/GoldenIsAProtogen/GoldensGorillaNametags/releases/latest"><img src="https://img.shields.io/badge/Status-Active-success?style=for-the-badge" alt="Status: Active"></a>
 
-## [DISCLAIMER](https://raw.githubusercontent.com/GoldenIsAProtogen/GoldensGorillaNametags/main/DISCLAIMER.md)
+## [DISCLAIMER](https://raw.githubusercontent.com/GoldenIsAProtogen/GoldensGorillaNametags/main/DISCLAIMER.md)<br>
 
 Want a mod/userid removed/added? Send me a message: [Contact & Discord](https://github.com/GoldenIsAProtogen/GoldensGorillaNametags#contact--discord)<br>
 \\\ ===== - ===== - ===== //
