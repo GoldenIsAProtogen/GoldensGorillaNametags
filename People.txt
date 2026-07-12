@@ -1,5 +1,5 @@
-6649141E4C845211$<color=#DAA520>Owner (GoldenIsAProtogen)</color>
-706572060708C655$<color=#DAA520>Owner (GoldenIsAProtogen)</color>
+6649141E4C845211$<color=#FFB200>Owner (GoldenIsAProtogen)</color>
+706572060708C655$<color=#FFB200>Owner (GoldenIsAProtogen)</color>
 6B9F9FBBF87A0F34$Spanky
 DC1C81717296B574$Spanky
 15DB614ED9485B3B$H4RNS
