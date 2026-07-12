@@ -23,7 +23,7 @@ namespace GoldensGorillaNametags;
 [BepInPlugin(Constants.Guid, Constants.Name, Constants.Version)]
 public class Plugin : BaseUnityPlugin
 {
-#region ==-== Fields & Init ==-==
+#region ===== - Fields & Init - =====
 
     public enum TextCase
     {
@@ -106,7 +106,7 @@ public class Plugin : BaseUnityPlugin
 
 #endregion
 
-#region ==-== Startup & Config ==-==
+#region ===== - Startup & Config - =====
 
     private void Start()
     {
@@ -216,7 +216,7 @@ public class Plugin : BaseUnityPlugin
 
 #endregion
 
-#region ==-== Runtime ==-==
+#region ===== - Runtime - =====
 
     public void Update()
     {
@@ -334,7 +334,7 @@ public class Plugin : BaseUnityPlugin
 
 #endregion
 
-#region ==-== Icons ==-==
+#region ===== - Icons - =====
 
     private void OnCosmeticsLoaded() => StartCoroutine(DownloadAndCacheIcons());
 
@@ -421,7 +421,7 @@ public class Plugin : BaseUnityPlugin
 
 #endregion
 
-#region ==-== GUI ==-==
+#region ===== - GUI - =====
 
     private void OnGUI()
     {

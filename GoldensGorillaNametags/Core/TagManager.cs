@@ -11,7 +11,7 @@ namespace GoldensGorillaNametags.Core;
 
 public class TagManager : MonoBehaviour
 {
-#region ==-== Fields & Init ==-==
+#region ===== - Fields & Init - =====
 
     private const           float      TagUpdateTime = 0.3f;
     public static           TagManager Instance;
@@ -24,7 +24,7 @@ public class TagManager : MonoBehaviour
 
 #endregion
 
-#region ==-== Tag Lifecycle ==-==
+#region ===== - Tag Lifecycle - =====
 
     public void CleanupTags(HashSet<VRRig> validRigs)
     {
@@ -118,7 +118,7 @@ public class TagManager : MonoBehaviour
 
 #endregion
 
-#region ==-== Runtime ==-==
+#region ===== - Runtime - =====
 
     public void UpdateTags()
     {
@@ -188,7 +188,7 @@ public class TagManager : MonoBehaviour
 
 #endregion
 
-#region ==-== Icons ==-==
+#region ===== - Icons - =====
 
     private void UpdatePlatformIcon(NametagData data)
     {
@@ -244,7 +244,7 @@ public class TagManager : MonoBehaviour
 
 #endregion
 
-#region ==-== Tag Content ==-==
+#region ===== - Tag Content - =====
 
     private string CreateTagText(VRRig rig)
     {

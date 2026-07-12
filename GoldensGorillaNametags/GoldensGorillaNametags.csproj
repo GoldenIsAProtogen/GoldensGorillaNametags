@@ -24,7 +24,7 @@
       <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Gorilla Tag\BepInEx\core\BepInEx.dll</HintPath>
     </Reference>
     <Reference Include="GorillaFriends">
-      <HintPath>..\..\..\..\..\Visual Studio Projects\My Hamburbur\GorillaFriends.dll</HintPath>
+      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Gorilla Tag\BepInEx\plugins\Mods I edited\GorillaFriends\GorillaFriends.dll</HintPath>
     </Reference>
     <Reference Include="GT_CustomMapSupportRuntime">
       <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Gorilla Tag\Gorilla Tag_Data\Managed\GT_CustomMapSupportRuntime.dll</HintPath>

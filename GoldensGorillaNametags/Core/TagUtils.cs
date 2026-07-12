@@ -15,7 +15,7 @@ namespace GoldensGorillaNametags.Core;
 
 public class TagUtils : MonoBehaviour
 {
-#region ==-== Fields & Init ==-==
+#region ===== - Fields & Init - =====
 
     public static TagUtils Instance;
 
@@ -55,7 +55,7 @@ public class TagUtils : MonoBehaviour
 
 #endregion
 
-#region ==-== Icons ==-==
+#region ===== - Icons - =====
 
     public IEnumerator UpdatePlatformIconCoroutine(VRRig rig, NametagData data)
     {
@@ -128,7 +128,7 @@ public class TagUtils : MonoBehaviour
 
 #endregion
 
-#region ==-== Tag Content ==-==
+#region ===== - Tag Content - =====
 
     public string FpsColor(int fps)
     {
@@ -329,7 +329,7 @@ public class TagUtils : MonoBehaviour
 
 #endregion
 
-#region ==-== Cache ==-==
+#region ===== - Cache - =====
 
     public void RefreshCache()
     {
