@@ -1,2 +1,2 @@
 steam$STEAM
-platform$idk yet
+quest$QUEST
