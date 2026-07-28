@@ -103,6 +103,7 @@ public class Plugin : BaseUnityPlugin
     public Texture2D PcvrTex    { get; set; }
     public Texture2D QuestpcTex { get; set; }
     public Texture2D QuestTex   { get; set; }
+    public Texture2D MaybeTex   { get; set; }
 
 #endregion
 
@@ -349,7 +350,7 @@ public class Plugin : BaseUnityPlugin
 
         (string, string)[] icons = new[]
         {
-                ("steamicon.png", $"{MainGitUrl}GoldensGorillaNametags/Icons/steamicon.png"), ("pcvricon.png", $"{MainGitUrl}GoldensGorillaNametags/Icons/pcvricon.png"), ("questpcicon.png", $"{MainGitUrl}GoldensGorillaNametags/Icons/questpcicon.png"), ("questicon.png", $"{MainGitUrl}GoldensGorillaNametags/Icons/questicon.png"),
+                ("steamicon.png", $"{MainGitUrl}GoldensGorillaNametags/Icons/steamicon.png"), ("pcvricon.png", $"{MainGitUrl}GoldensGorillaNametags/Icons/pcvricon.png"), ("questpcicon.png", $"{MainGitUrl}GoldensGorillaNametags/Icons/questpcicon.png"), ("questicon.png", $"{MainGitUrl}GoldensGorillaNametags/Icons/questicon.png"), ("maybeicon.png", $"{MainGitUrl}GoldensGorillaNametags/Icons/maybeicon.png"),
         };
 
         foreach ((string fileName, string url) in icons)
@@ -389,6 +390,7 @@ public class Plugin : BaseUnityPlugin
         PcvrTex    = LoadIconFromFile(Path.Combine(iconsDir, "pcvricon.png"));
         QuestpcTex = LoadIconFromFile(Path.Combine(iconsDir, "questpcicon.png"));
         QuestTex   = LoadIconFromFile(Path.Combine(iconsDir, "questicon.png"));
+        MaybeTex   = LoadIconFromFile(Path.Combine(iconsDir, "maybeicon.png"));
     }
 
     private Texture2D LoadIconFromFile(string path)

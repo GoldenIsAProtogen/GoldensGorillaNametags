@@ -35,7 +35,7 @@ public class TagUtils : MonoBehaviour
 
     private static readonly Dictionary<string, string> PlatColors = new()
     {
-            { "STEAMVR", "#ffff00" }, { "QUESTPC", "#ffaa00" }, { "PCVR", "#ff0000" },
+            { "STEAM", "#ffff00" }, { "QUESTPC", "#ffaa00" }, { "PCVR", "#ff0000" },
             { "QUEST", "#00ff00" }, { "UNKNOWN", "#808080" },
     };
 
@@ -48,6 +48,8 @@ public class TagUtils : MonoBehaviour
 
     private static readonly DateTime                     AddedSteamPaymentDate  = new(2023, 02, 06);
     private static readonly Dictionary<string, DateTime> PlayerCreationDateDict = new();
+
+    private readonly Dictionary<NametagData, bool> _platformFallbackState = new();
 
     private Dictionary<string, string> specialCache, modsCache;
 
@@ -76,6 +78,8 @@ public class TagUtils : MonoBehaviour
                 data.CurrentPlatformTex          = null;
                 data.PlatformIconRenderer.sprite = null;
                 data.PlatformIconRenderer.gameObject.SetActive(false);
+
+                UpdateMaybeIcon(data, false);
             }
 
             yield return new WaitForSeconds(10f);
@@ -84,44 +88,121 @@ public class TagUtils : MonoBehaviour
 
     private void UpdatePlatformIconTex(VRRig rig, NametagData data)
     {
-        Texture2D newPlatTex = PlatformTex(rig);
+        Texture2D newPlatTex = PlatformTex(rig, out bool isFallback);
 
-        if (newPlatTex == data.CurrentPlatformTex)
+        bool fallbackChanged = !_platformFallbackState.TryGetValue(data, out bool prevFallback) || prevFallback != isFallback;
+
+        if (newPlatTex == data.CurrentPlatformTex && !fallbackChanged)
             return;
 
-        data.CurrentPlatformTex = newPlatTex;
+        data.CurrentPlatformTex      = newPlatTex;
+        _platformFallbackState[data] = isFallback;
 
         if (newPlatTex != null)
         {
             data.PlatformIconRenderer.sprite = Sprite.Create(newPlatTex, new Rect(0, 0, newPlatTex.width, newPlatTex.height), Vector2.one * 0.5f);
             data.PlatformIconRenderer.gameObject.SetActive(true);
+
+            UpdateMaybeIcon(data, isFallback);
         }
         else
         {
             data.PlatformIconRenderer.sprite = null;
             data.PlatformIconRenderer.gameObject.SetActive(false);
+
+            UpdateMaybeIcon(data, false);
         }
     }
 
-    private Texture2D PlatformTex(VRRig rig)
+    private void UpdateMaybeIcon(NametagData data, bool show)
+    {
+        if (data?.PlatformIconRenderer == null)
+            return;
+
+        Transform existingT = data.PlatformIconRenderer.transform.Find("MaybeIcon");
+
+        if (!show)
+        {
+            if (existingT != null)
+                existingT.gameObject.SetActive(false);
+
+            return;
+        }
+
+        if (Plugin.Instance.MaybeTex == null)
+            return;
+
+        SpriteRenderer maybeRenderer = MaybeIconRenderer(data.PlatformIconRenderer);
+
+        if (maybeRenderer.sprite == null || maybeRenderer.sprite.texture != Plugin.Instance.MaybeTex)
+            maybeRenderer.sprite = Sprite.Create(Plugin.Instance.MaybeTex, new Rect(0, 0, Plugin.Instance.MaybeTex.width, Plugin.Instance.MaybeTex.height), Vector2.one * 0.5f);
+
+        maybeRenderer.gameObject.SetActive(true);
+    }
+
+    private SpriteRenderer MaybeIconRenderer(SpriteRenderer parentRenderer)
+    {
+        Transform existing = parentRenderer.transform.Find("MaybeIcon");
+        GameObject go;
+
+        if (existing != null)
+        {
+            go = existing.gameObject;
+        }
+        else
+        {
+            go = new GameObject("MaybeIcon");
+            go.transform.SetParent(parentRenderer.transform, false);
+            go.AddComponent<SpriteRenderer>().sortingOrder = parentRenderer.sortingOrder + 1;
+        }
+
+        go.transform.localPosition = new Vector3(2.5f, 0f, 0f);
+
+        return go.GetComponent<SpriteRenderer>();
+    }
+
+    private Texture2D PlatformTex(VRRig rig, out bool isFallback)
+    {
+        isFallback = false;
+
+        if (!rig.initializedCosmetics)
+            return null;
+
+        string platform = GetPlatformProperty(rig);
+
+        Texture2D tex = platform switch
+                        {
+                                "STEAM"   => Plugin.Instance.SteamTex,
+                                "QUESTPC" => Plugin.Instance.QuestpcTex,
+                                "PCVR"    => Plugin.Instance.PcvrTex,
+                                "QUEST"   => Plugin.Instance.QuestTex,
+                                var _     => null,
+                        };
+
+        if (tex != null)
+            return tex;
+
+        isFallback = true;
+
+        return PlatformTexFallback(rig);
+    }
+
+    private Texture2D PlatformTexFallback(VRRig rig)
     {
         string cosmetics = rig._playerOwnedCosmetics.Concat();
         int    propCount = rig.Creator.GetPlayerRef().CustomProperties.Count;
 
-        if (rig.initializedCosmetics)
-        {
-            if (cosmetics.Contains("S. FIRST LOGIN")) return Plugin.Instance.SteamTex;
-            if (cosmetics.Contains("FIRST LOGIN") || cosmetics.Contains("game-purchase-bundle"))
-                return Plugin.Instance.QuestpcTex;
+        if (cosmetics.Contains("S. FIRST LOGIN")) return Plugin.Instance.SteamTex;
+        if (cosmetics.Contains("FIRST LOGIN") || cosmetics.Contains("game-purchase-bundle"))
+            return Plugin.Instance.QuestpcTex;
 
-            if (propCount > 1 || rig.currentRankedSubTierPC > 0) return Plugin.Instance.PcvrTex;
-            if (rig.currentRankedSubTierQuest > 0) return Plugin.Instance.QuestTex;
+        if (propCount > 1 || rig.currentRankedSubTierPC > 0) return Plugin.Instance.PcvrTex;
+        if (rig.currentRankedSubTierQuest > 0) return Plugin.Instance.QuestTex;
 
-            DateTime? playerCreationDate = GetPlayerCreationDate(rig.Creator.UserId);
+        DateTime? playerCreationDate = GetPlayerCreationDate(rig.Creator.UserId);
 
-            if (playerCreationDate.HasValue && playerCreationDate.Value > AddedSteamPaymentDate)
-                return Plugin.Instance.QuestTex;
-        }
+        if (playerCreationDate.HasValue && playerCreationDate.Value > AddedSteamPaymentDate)
+            return Plugin.Instance.QuestTex;
 
         return null;
     }
@@ -160,33 +241,56 @@ public class TagUtils : MonoBehaviour
     {
         if (!Plugin.Instance.CheckPlatform.Value) return string.Empty;
 
-        string cosmetics   = rig._playerOwnedCosmetics.Concat() ?? "";
-        string platformKey = PlatformKey(cosmetics, rig);
+        string platformKey = PlatformKey(rig, out bool _);
 
         return PlatColors.TryGetValue(platformKey, out string clr) ? $"[<color={clr}>{platformKey}</color>]" : $"[{platformKey}]";
     }
 
     // ReSharper disable Unity.PerformanceAnalysis
-    private string PlatformKey(string cosmetics, VRRig rig)
+    private string PlatformKey(VRRig rig, out bool isFallback)
     {
-        int propCount = rig.Creator.GetPlayerRef().CustomProperties.Count;
+        isFallback = false;
 
-        if (rig.initializedCosmetics)
-        {
-            if (cosmetics.Contains("S. FIRST LOGIN")) return "STEAMVR";
-            if (cosmetics.Contains("FIRST LOGIN") || cosmetics.Contains("game-purchase-bundle")) return "QUESTPC";
-            if (propCount > 1                     || rig.currentRankedSubTierPC > 0) return "PCVR";
-            if (rig.currentRankedSubTierQuest > 0) return "QUEST";
+        if (!rig.initializedCosmetics)
+            return "LOADING...";
 
-            DateTime? playerCreationDate = GetPlayerCreationDate(rig.Creator.UserId);
+        string platform = GetPlatformProperty(rig);
 
-            if (playerCreationDate.HasValue && playerCreationDate.Value > AddedSteamPaymentDate)
-                return "QUEST";
+        if (!string.IsNullOrEmpty(platform) && platform != "UNKNOWN")
+            return platform;
 
-            return "UNKNOWN";
-        }
+        isFallback = true;
 
-        return "LOADING...";
+        return PlatformKeyFallback(rig);
+    }
+
+    private string PlatformKeyFallback(VRRig rig)
+    {
+        string cosmetics = rig._playerOwnedCosmetics.Concat() ?? "";
+        int    propCount = rig.Creator.GetPlayerRef().CustomProperties.Count;
+
+        if (cosmetics.Contains("S. FIRST LOGIN")) return "STEAM?";
+        if (cosmetics.Contains("FIRST LOGIN") || cosmetics.Contains("game-purchase-bundle")) return "QUESTPC?";
+        if (propCount > 1                     || rig.currentRankedSubTierPC > 0) return "PCVR?";
+        if (rig.currentRankedSubTierQuest > 0) return "QUEST?";
+
+        DateTime? playerCreationDate = GetPlayerCreationDate(rig.Creator.UserId);
+
+        if (playerCreationDate.HasValue && playerCreationDate.Value > AddedSteamPaymentDate)
+            return "QUEST?";
+
+        return "UNKNOWN";
+    }
+
+    private string GetPlatformProperty(VRRig rig)
+    {
+        Hashtable props = rig.Creator.GetPlayerRef().CustomProperties;
+
+        foreach (DictionaryEntry entry in props)
+            if (entry.Key is string k && string.Equals(k, "platform", StringComparison.OrdinalIgnoreCase))
+                return entry.Value?.ToString()?.ToUpperInvariant();
+
+        return null;
     }
 
     public string SpecialCosmeticsTag(VRRig rig)
