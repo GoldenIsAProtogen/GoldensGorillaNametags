@@ -50,7 +50,7 @@ To configure the mod, press "F4" in game or go to "(GorillaTag Directory)\BepInE
 
 - Integrations
   - GorillaFriends integration
-<br>
+<div></div>
 \\\ ===== - ===== - ===== //
 
 # Contact & Discord
