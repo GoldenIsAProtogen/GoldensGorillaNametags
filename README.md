@@ -13,7 +13,7 @@ Nearly every aspect of nametags can be adjusted: size, outlines, height, icons, 
 
 **[DISCLAIMER](https://raw.githubusercontent.com/GoldenIsAProtogen/GoldensGorillaNametags/main/DISCLAIMER.md)**
 
-Want a mod/userid removed/added? Send me a message: [Contact & Discord](https://github.com/GoldenIsAProtogen/GoldensGorillaNametags#contact--discord)<br>
+Want a mod/userid removed/added? Send me a message: [Contact](https://github.com/GoldenIsAProtogen/GoldensGorillaNametags/blob/main/README.md#contact)<br>
 \\\ ===== - ===== - ===== //
 
 # Features
