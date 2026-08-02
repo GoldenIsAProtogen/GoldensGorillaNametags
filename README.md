@@ -49,7 +49,8 @@ To configure the mod, press "F4" in game or go to "(GorillaTag Directory)\BepInE
   - Softness (drop shadow)
 
 - Integrations
-  - GorillaFriends integration<br>
+  - GorillaFriends integration
+<!-- -->
 \\\ ===== - ===== - ===== //
 
 # Contact & Discord
