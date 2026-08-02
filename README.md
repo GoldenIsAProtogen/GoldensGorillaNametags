@@ -2,7 +2,7 @@
 // ===== - ===== - ===== \\\\<br>
 GoldensGorillaNametags is a Gorilla Tag mod that displays detailed player information such as names, platforms, FPS/refresh rate, cosmetics, and more - all with extensive customization to fit your preferred style.
 
-Nearly every aspect of nametags can be adjusted: size, outlines, height, icons, update speed, and additional options. It also includes special features like GorillaFriends integration and advanced mod checking methods.<br>
+Nearly every aspect of nametags can be adjusted: size, outlines, height, icons, update speed, and additional options. It also includes special features like GorillaFriends integration and advanced mod checking methods.
 \\\ ===== - ===== - ===== //
 
 # Important Information
@@ -13,7 +13,7 @@ Nearly every aspect of nametags can be adjusted: size, outlines, height, icons, 
 
 **[DISCLAIMER](https://raw.githubusercontent.com/GoldenIsAProtogen/GoldensGorillaNametags/main/DISCLAIMER.md)**
 
-Want a mod/userid removed/added? Send me a message: [Contact & Discord](https://github.com/GoldenIsAProtogen/GoldensGorillaNametags#contact--discord)<br>
+Want a mod/userid removed/added? Send me a message: [Contact & Discord](https://github.com/GoldenIsAProtogen/GoldensGorillaNametags#contact--discord)
 \\\ ===== - ===== - ===== //
 
 # Features
@@ -49,12 +49,13 @@ To configure the mod, press "F4" in game or go to "(GorillaTag Directory)\BepInE
   - Softness (drop shadow)
 
 - Integrations
-  - GorillaFriends integration<br>
+  - GorillaFriends integration
 \\\ ===== - ===== - ===== //
 
 # Contact & Discord
 // ===== - ===== - ===== \\\\<br>
 Discord Server: [link](https://discord.gg/UMgGBVuZm6)
+Fluxer Server: [link](https://fluxer.gg/rsTpSdXd)
 
-Discord Account: [link](https://discord.com/users/1221658936441049090)<br>
+Discord Account: [link](https://discord.com/users/1221658936441049090)
 \\\ ===== - ===== - ===== //
