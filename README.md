@@ -55,8 +55,8 @@ To configure the mod, press "F4" in game or go to "(GorillaTag Directory)\BepInE
 
 # Contact
 // ===== - ===== - ===== \\\\<br>
-Discord Server: [link](https://discord.gg/UMgGBVuZm6)<br>
+Discord Server: My main discord account was banned, so this won't be available until I make a new one<br>
 Fluxer Server: [link](https://fluxer.gg/rsTpSdXd)
 
-Discord Account: [link](https://discord.com/users/1221658936441049090)<br>
+Discord Account: [link](https://discord.com/users/1556506405912060036)<br>
 \\\ ===== - ===== - ===== //
