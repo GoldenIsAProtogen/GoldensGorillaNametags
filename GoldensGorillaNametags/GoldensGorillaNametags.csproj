@@ -86,12 +86,5 @@
       <HintPath>$(GamePath)\Gorilla Tag_Data\Managed\UnityEngine.UnityWebRequestTextureModule.dll</HintPath>
     </Reference>
   </ItemGroup>
-
-  <ItemGroup>
-    <None Remove="Icons\SteamSprite.png"/>
-    <None Remove="Icons\MetaSprite.png"/>
-    <None Remove="Icons\ComputerSprite.png"/>
-    <None Remove="Icons\UnknownSprite.png"/>
-  </ItemGroup>
 </Project>
 

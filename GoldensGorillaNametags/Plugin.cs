@@ -339,7 +339,7 @@ public class Plugin : BaseUnityPlugin
 
         (string, string)[] icons = new[]
         {
-                ("steamicon.png", $"{MainGitUrl}GoldensGorillaNametags/Icons/steamicon.png"), ("pcvricon.png", $"{MainGitUrl}GoldensGorillaNametags/Icons/pcvricon.png"), ("questpcicon.png", $"{MainGitUrl}GoldensGorillaNametags/Icons/questpcicon.png"), ("questicon.png", $"{MainGitUrl}GoldensGorillaNametags/Icons/questicon.png"), ("maybeicon.png", $"{MainGitUrl}GoldensGorillaNametags/Icons/maybeicon.png"),
+                ("steamicon.png", $"{MainGitUrl}Icons/steamicon.png"), ("pcvricon.png", $"{MainGitUrl}Icons/pcvricon.png"), ("questpcicon.png", $"{MainGitUrl}Icons/questpcicon.png"), ("questicon.png", $"{MainGitUrl}/questicon.png"), ("maybeicon.png", $"{MainGitUrl}Icons/maybeicon.png"),
         };
 
         foreach ((string fileName, string url) in icons)
