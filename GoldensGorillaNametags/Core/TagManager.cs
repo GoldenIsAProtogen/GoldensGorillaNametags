@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using GoldensGorillaNametags.Utils;
@@ -20,6 +19,10 @@ public class TagManager : MonoBehaviour
     private readonly Dictionary<VRRig, float>       lastTagUpdate = new();
     private readonly Dictionary<VRRig, NametagData> tagMap        = new();
 
+    private readonly List<VRRig> _rigsToRemoveBuffer = new();
+
+    private static readonly Regex NameTagStripRegex = new(@"<.*?>", RegexOptions.Compiled);
+
     private void Awake() => Instance = this;
 
 #endregion
@@ -28,10 +31,17 @@ public class TagManager : MonoBehaviour
 
     public void CleanupTags(HashSet<VRRig> validRigs)
     {
-        List<VRRig> rigsToRemove
-                = tagMap.Where(kv => kv.Key == null || !validRigs.Contains(kv.Key) || kv.Key.isOfflineVRRig || kv.Key.Creator == null).Select(kv => kv.Key).ToList();
+        _rigsToRemoveBuffer.Clear();
 
-        foreach (VRRig rig in rigsToRemove)
+        foreach (KeyValuePair<VRRig, NametagData> kv in tagMap)
+        {
+            VRRig rig = kv.Key;
+
+            if (rig == null || !validRigs.Contains(rig) || rig.isOfflineVRRig || rig.Creator == null)
+                _rigsToRemoveBuffer.Add(rig);
+        }
+
+        foreach (VRRig rig in _rigsToRemoveBuffer)
         {
             if (tagMap.TryGetValue(rig, out NametagData data))
             {
@@ -50,7 +60,16 @@ public class TagManager : MonoBehaviour
 
     public void CreateTagmap(HashSet<VRRig> validRigs)
     {
-        foreach (VRRig rig in validRigs.Where(vrrig => vrrig != null && !vrrig.isOfflineVRRig && vrrig.Creator != null).Where(vrriggy => !tagMap.ContainsKey(vrriggy))) tagMap[rig] = CreateTags(rig);
+        foreach (VRRig rig in validRigs)
+        {
+            if (rig == null || rig.isOfflineVRRig || rig.Creator == null)
+                continue;
+
+            if (tagMap.ContainsKey(rig))
+                continue;
+
+            tagMap[rig] = CreateTags(rig);
+        }
     }
 
     private NametagData CreateTags(VRRig rig)
@@ -91,6 +110,12 @@ public class TagManager : MonoBehaviour
         text.font             = Plugin.Instance.Font;
         text.textWrappingMode = TextWrappingModes.Normal;
         text.richText         = true;
+
+        if (text.fontSharedMaterial != null)
+        {
+            text.fontSharedMaterial.DisableKeyword("OUTLINE_ON");
+            text.fontMaterial = text.fontSharedMaterial;
+        }
     }
 
     public void ClearTags()
@@ -118,7 +143,7 @@ public class TagManager : MonoBehaviour
 
 #endregion
 
-#region ===== - Runtime - =====
+#region ===== - Runtime - ====
 
     public void UpdateTags()
     {
@@ -134,7 +159,7 @@ public class TagManager : MonoBehaviour
 
             Cam(data.Container.transform);
 
-            if (!lastTagUpdate.ContainsKey(rig) || currentTime - lastTagUpdate[rig] >= TagUpdateTime)
+            if (!lastTagUpdate.TryGetValue(rig, out float lastUpdate) || currentTime - lastUpdate >= TagUpdateTime)
             {
                 UpdateTagContent(rig, data);
                 lastTagUpdate[rig] = currentTime;
@@ -155,9 +180,13 @@ public class TagManager : MonoBehaviour
         tagTransform.LookAt(cameraTransform.position);
         tagTransform.Rotate(0f, 180f, 0f);
 
-        foreach (Transform child in tagTransform)
+        int childCount = tagTransform.childCount;
+        for (int i = 0; i < childCount; i++)
+        {
+            Transform child = tagTransform.GetChild(i);
             if (child.name != "PlatformIcon")
                 child.localRotation = Quaternion.identity;
+        }
     }
 
     private void UpdateTagContent(VRRig rig, NametagData data)
@@ -169,20 +198,18 @@ public class TagManager : MonoBehaviour
 
         string text = CreateTagText(rig);
 
-        if (data.LastText == text)
-        {
-            if (Plugin.Instance.UsePlatIcons.Value && data.CurrentPlatformTex != null)
-                UpdateIconPosition(data);
+        bool textChanged = data.LastText != text;
 
-            return;
+        if (textChanged)
+        {
+            data.MainText.text = text;
+            data.LastText      = text;
+            UpdateTextColor(rig, data.MainText);
         }
 
-        data.MainText.text = text;
-        data.LastText      = text;
-        UpdateTextColor(rig, data.MainText);
         UpdateOutlines(data);
 
-        if (Plugin.Instance.UsePlatIcons.Value)
+        if (textChanged && Plugin.Instance.UsePlatIcons.Value)
             UpdateIconPosition(data);
     }
 
@@ -259,25 +286,23 @@ public class TagManager : MonoBehaviour
 
         if (Plugin.Instance.CheckFps.Value || Plugin.Instance.CheckPing.Value)
         {
-            string line = "";
-
             if (Plugin.Instance.CheckFps.Value)
             {
-                int fps = rig.fps;
-                line += $"<color={TagUtils.Instance.FpsColor(fps)}>{fps}</color>";
+                int fps = Plugin.Instance.EstimateFPS.Value ? rig.fps : rig.rigContainer.m_playerStats.FPS;
+                stringBuilder.Append("<color=").Append(TagUtils.Instance.FpsColor(fps)).Append('>').Append(fps).Append("</color>");
             }
 
             if (Plugin.Instance.CheckPing.Value)
             {
-                int ping = rig.ping();
+                int ping = Plugin.Instance.EstimatePing.Value ? rig.ping() : rig.rigContainer.m_playerStats.Ping;
 
                 if (Plugin.Instance.CheckFps.Value)
-                    line += " <color=white>|</color> ";
+                    stringBuilder.Append(" <color=white>|</color> ");
 
-                line += $"<color={TagUtils.Instance.PingColor(ping)}>{ping}</color>";
+                stringBuilder.Append("<color=").Append(TagUtils.Instance.PingColor(ping)).Append('>').Append(ping).Append("</color>");
             }
 
-            stringBuilder.Append(line + "\n");
+            stringBuilder.Append('\n');
         }
 
         string platformTag  = Plugin.Instance.CheckPlatform.Value && !Plugin.Instance.UsePlatIcons.Value ? TagUtils.Instance.PlatformTag(rig) : string.Empty;
@@ -298,7 +323,7 @@ public class TagManager : MonoBehaviour
         }
 
         string SanitizePlayerName(string unsanitizedPlayerName)
-            => string.IsNullOrEmpty(unsanitizedPlayerName) ? "" : Regex.Replace(unsanitizedPlayerName, "<.*?>", string.Empty);
+            => string.IsNullOrEmpty(unsanitizedPlayerName) ? "" : NameTagStripRegex.Replace(unsanitizedPlayerName, string.Empty);
 
         string playerName = rig.Creator.NickName;
         playerName = SanitizePlayerName(playerName);
@@ -361,18 +386,18 @@ public class TagManager : MonoBehaviour
 
     private void UpdateOutlines(NametagData data)
     {
+        if (data?.MainText == null) return;
+
         CleanupOutlines(data);
 
-        if (!Plugin.Instance.OutlineEnabled.Value || data.MainText == null)
-            return;
+        if (!Plugin.Instance.OutlineEnabled.Value) return;
 
-        ApplyOutlines(data.MainText, Plugin.Instance.OutlineThickness.Value, Plugin.Instance.OutlineColor.Value, Plugin.Instance.OutlineQuality.Value);
+        ApplyOutlines(data.MainText, Plugin.Instance.OutlineThickness.Value, Plugin.Instance.OutlineColor.Value);
     }
 
     private void CleanupOutlines(NametagData data)
     {
-        if (data == null || data.MainText == null)
-            return;
+        if (data?.MainText == null) return;
 
         Material currentMat = data.MainText.fontMaterial;
         Material sharedMat  = data.MainText.fontSharedMaterial;
@@ -387,54 +412,42 @@ public class TagManager : MonoBehaviour
             }
             catch
             {
-                // ignored
+                /* ignored */
             }
         }
     }
 
-    private void ApplyOutlines(TextMeshPro txt, float thickness, Color color, bool highQual)
+    private void ApplyOutlines(TextMeshPro txt, float thickness, Color color)
     {
         if (txt == null) return;
 
-        Material __base = txt.fontSharedMaterial;
+        Material baseMat = txt.fontSharedMaterial;
 
-        if (__base == null) return;
+        if (baseMat == null) return;
 
-        Material __instance = txt.fontMaterial;
-        if (__instance == null || __instance == __base)
+        Material instanceMat = txt.fontMaterial;
+
+        if (instanceMat == null || instanceMat == baseMat)
         {
-            __instance = new Material(__base)
+            instanceMat = new Material(baseMat)
             {
-                    name = __base.name + " (Instance)",
+                    name      = baseMat.name + " (Outlined)",
+                    hideFlags = HideFlags.HideAndDontSave,
             };
 
-            txt.fontMaterial = __instance;
+            txt.fontMaterial = instanceMat;
         }
 
-        __instance.SetFloat(ShaderUtilities.ID_OutlineWidth, thickness);
-        __instance.SetColor(ShaderUtilities.ID_OutlineColor, color);
+        instanceMat.SetFloat(ShaderUtilities.ID_OutlineWidth, thickness);
+        instanceMat.SetColor(ShaderUtilities.ID_OutlineColor, color);
+        instanceMat.SetFloat(ShaderUtilities.ID_OutlineSoftness, Plugin.Instance.OutlineSoftness.Value);
 
-        float softness = highQual ? 0.35f : 0f;
-        try
-        {
-            __instance.SetFloat(ShaderUtilities.ID_OutlineSoftness, softness);
-        }
-        catch
-        {
-            // ignored
-        }
+        float dilate = Mathf.Clamp(thickness * 0.5f, 0f, 0.2f);
+        instanceMat.SetFloat(ShaderUtilities.ID_FaceDilate, dilate);
+        instanceMat.EnableKeyword("OUTLINE_ON");
 
-        if (!(softness > 0f)) return;
-
-        try
-        {
-            float dilate = Mathf.Clamp(thickness * 0.5f, 0f, 0.2f);
-            __instance.SetFloat(ShaderUtilities.ID_FaceDilate, dilate);
-        }
-        catch
-        {
-            // ignored
-        }
+        txt.UpdateMeshPadding();
+        txt.SetAllDirty();
     }
 
 #endregion

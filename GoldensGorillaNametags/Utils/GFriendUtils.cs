@@ -23,6 +23,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+using System;
 using BepInEx.Bootstrap;
 using GorillaFriends;
 
@@ -30,11 +31,16 @@ namespace GoldensGorillaNametags.Utils;
 
 internal class GFriendUtils
 {
-    private static bool Installed(string uuid) => Chainloader.PluginInfos.ContainsKey(uuid);
+    private const string GorillaFriendsGuid = "net.rusjj.gorillafriends";
 
-    public static bool Friend(NetPlayer player) => Installed("net.rusjj.gorillafriends") && Main.IsFriend(player.UserId);
+    // Slightly edited from the original to avoid re-checking Chainloader
+    private static readonly Lazy<bool> _installed = new(() => Chainloader.PluginInfos.ContainsKey(GorillaFriendsGuid));
 
-    public static bool RecentlyPlayedWith(NetPlayer player) => Installed("net.rusjj.gorillafriends") && Main.HasPlayedWithUsRecently(player.UserId).recentlyPlayed == Main.eRecentlyPlayed.Before;
+    private static bool Installed() => _installed.Value;
 
-    public static bool Verified(NetPlayer player) => Installed("net.rusjj.gorillafriends") && Main.IsVerified(player.UserId);
+    public static bool Friend(NetPlayer player) => Installed() && Main.IsFriend(player.UserId);
+
+    public static bool RecentlyPlayedWith(NetPlayer player) => Installed() && Main.HasPlayedWithUsRecently(player.UserId).recentlyPlayed == Main.eRecentlyPlayed.Before;
+
+    public static bool Verified(NetPlayer player) => Installed() && Main.IsVerified(player.UserId);
 }

@@ -3,9 +3,12 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using ExitGames.Client.Photon;
+using Photon.Pun;
 using PlayFab;
 using PlayFab.ClientModels;
 using UnityEngine;
@@ -35,7 +38,8 @@ public class TagUtils : MonoBehaviour
 
     private static readonly Dictionary<string, string> PlatColors = new()
     {
-            { "STEAM", "#ffff00" }, { "QUESTPC", "#ffaa00" }, { "PCVR", "#ff0000" },
+            { "STEAM", "#ffff00" }, { "QUESTPC", "#ffaa00" },
+            { "PC", "#ffcc00" }, { "PCVR", "#ff0000" },
             { "QUEST", "#00ff00" }, { "UNKNOWN", "#808080" },
     };
 
@@ -49,9 +53,14 @@ public class TagUtils : MonoBehaviour
     private static readonly DateTime                     AddedSteamPaymentDate  = new(2023, 02, 06);
     private static readonly Dictionary<string, DateTime> PlayerCreationDateDict = new();
 
-    private readonly Dictionary<NametagData, bool> _platformFallbackState = new();
+    private readonly        Dictionary<NametagData, bool> _platformFallbackState = new();
 
-    private Dictionary<string, string> specialCache, modsCache;
+    private static readonly Regex ControlCharRegex    = new(@"[\x00-\x1F\x7F]", RegexOptions.Compiled);
+    private static readonly Regex EscapeSequenceRegex = new(@"\\[nrtvbfa\\]+", RegexOptions.Compiled);
+    private static readonly Regex WhitespaceRegex     = new(@"\s+", RegexOptions.Compiled);
+    private static readonly Regex ModVersionRegex     = new(@"v?\s*([0-9]+(\.[0-9]+){1,3})", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    private Dictionary<string, string> specialCache, modsCache, eventColorsCache;
 
     private void Awake() => Instance = this;
 
@@ -142,7 +151,7 @@ public class TagUtils : MonoBehaviour
 
     private SpriteRenderer MaybeIconRenderer(SpriteRenderer parentRenderer)
     {
-        Transform existing = parentRenderer.transform.Find("MaybeIcon");
+        Transform  existing = parentRenderer.transform.Find("MaybeIcon");
         GameObject go;
 
         if (existing != null)
@@ -173,6 +182,7 @@ public class TagUtils : MonoBehaviour
         Texture2D tex = platform switch
                         {
                                 "STEAM"   => Plugin.Instance.SteamTex,
+                                "PC"      => Plugin.Instance.PcvrTex,
                                 "QUESTPC" => Plugin.Instance.QuestpcTex,
                                 "PCVR"    => Plugin.Instance.PcvrTex,
                                 "QUEST"   => Plugin.Instance.QuestTex,
@@ -204,7 +214,7 @@ public class TagUtils : MonoBehaviour
         if (playerCreationDate.HasValue && playerCreationDate.Value > AddedSteamPaymentDate)
             return Plugin.Instance.QuestTex;
 
-        return null;
+        return Plugin.Instance.MaybeTex; //was null before
     }
 
 #endregion
@@ -286,6 +296,11 @@ public class TagUtils : MonoBehaviour
     {
         Hashtable props = rig.Creator.GetPlayerRef().CustomProperties;
 
+        object exact = props["platform"];
+
+        if (exact != null)
+            return exact.ToString().ToUpperInvariant();
+
         foreach (DictionaryEntry entry in props)
             if (entry.Key is string k && string.Equals(k, "platform", StringComparison.OrdinalIgnoreCase))
                 return entry.Value?.ToString()?.ToUpperInvariant();
@@ -313,117 +328,190 @@ public class TagUtils : MonoBehaviour
             return string.Empty;
 
         StringBuilder sb    = new(128);
-        Hashtable     props = rig.Creator.GetPlayerRef().CustomProperties;
+        Hashtable     props = null;
 
-        foreach (DictionaryEntry entry in props)
+        try
         {
-            string _firstkey = entry.Key?.ToString() ?? "";
-
-            if (_firstkey.Contains("wyndigo", StringComparison.OrdinalIgnoreCase))
-            {
-                string afterWyndigo = _firstkey
-                                     .Substring(_firstkey.IndexOf("wyndigo", StringComparison.OrdinalIgnoreCase) +
-                                                "wyndigo".Length).Trim();
-
-                sb.Append($"[<color=#ff0000>WYNDIGO</color> {afterWyndigo.ToLower()}] ");
-
-                continue;
-            }
-
-            string _secondkey = NormalizeString(entry.Key.ToString());
-
-            if (!modsCache.TryGetValue(_secondkey, out string tag))
-                continue;
-
-            if (tag.Contains("{0}") && !ModSpoofCheck(entry.Value))
-                continue;
-
-            tag = GetModVersion(_secondkey, tag, entry.Value);
-            sb.Append(tag + " ");
+            props = rig.Creator.GetPlayerRef().CustomProperties;
+        }
+        catch
+        {
+            return string.Empty;
         }
 
-        if (rig.initializedCosmetics && Plugin.Instance.CheckCheats.Value && HasCosmetx(rig))
-            sb.Append("[<color=#ff0000>COSMETX</color>]");
+        if (props == null) return string.Empty;
+
+        foreach (DictionaryEntry entry in props)
+            try
+            {
+                string _firstkey = entry.Key?.ToString() ?? "";
+
+                int wyndigoIdx = _firstkey.IndexOf("wyndigo", StringComparison.OrdinalIgnoreCase);
+                if (wyndigoIdx >= 0)
+                {
+                    string afterWyndigo = _firstkey.Substring(wyndigoIdx + "wyndigo".Length).Trim();
+
+                    sb.Append($"[<color=#ff0000>WYNDIGO</color> {afterWyndigo.ToLower()}] ");
+
+                    continue;
+                }
+
+                string _secondkey = NormalizeString(entry.Key.ToString());
+
+                if (!modsCache.TryGetValue(_secondkey, out string tag))
+                    continue;
+
+                string formatted = FormatModValue(_secondkey, tag, entry.Value);
+
+                if (formatted == null)
+                    continue;
+
+                sb.Append(formatted + " ");
+            }
+            catch { }
+
+        try
+        {
+            if (rig.initializedCosmetics && Plugin.Instance.CheckCheats.Value && HasCosmetx(rig))
+                sb.Append("[<color=#ff0000>COSMETX</color>]");
+        }
+        catch
+        {
+            // ignored
+        }
 
         return sb.ToString().Trim();
     }
 
-    private string GetModVersion(string key, string tag, object value)
+    private string BuildEventTag(string str1, string str2)
     {
-        if (tag.Contains("{0}"))
+        string color        = GetEventColor(str2);
+        string coloredLabel = $"<color={color}>{str2}</color>";
+
+        return str1.Length == 16
+                       ? $"[{coloredLabel}]"
+                       : $"[{coloredLabel} v{str1}]";
+    }
+
+    private string GetEventColor(string str2)
+    {
+        if (eventColorsCache != null && eventColorsCache.TryGetValue(NormalizeString(str2), out string color))
+            return $"#{color}";
+
+        return "#ffffff";
+    }
+
+    private string FormatModValue(string key, string tag, object value)
+    {
+        if (value == null) return null;
+
+        string version = null;
+
+        try
         {
-            string version = null;
+            version = value switch
+                      {
+                              string s when s.StartsWith("System.", StringComparison.OrdinalIgnoreCase) => null,
+                              string s                                                                  => ModVersionRegex.Match(s) is { Success: true, } m ? m.Groups[1].Value : null,
+                              Hashtable ht                                                              => FindDictValue(ht, "version"),
+                              IDictionary d                                                             => FindDictValue(d,  "version"),
+                              bool                                                                      => null,
+                              var _                                                                     => null,
+                      };
+        }
+        catch
+        {
+            version = null;
+        }
 
-            switch (value)
+        if (!string.IsNullOrEmpty(version))
+        {
+            if (string.Equals(version.Trim(), "true",  StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(version.Trim(), "false", StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            return string.Format(tag, version);
+        }
+
+        string raw = null;
+
+        try
+        {
+            raw = value switch
+                  {
+                          Hashtable ht  => FindDictValue(ht, "other", "extra") ?? FindDictValue(ht, "version"),
+                          IDictionary d => FindDictValue(d, "other", "extra"),
+                          string s      => s,
+                          bool b        => b.ToString(),
+                          var _         => value.ToString(),
+                  };
+        }
+        catch
+        {
+            raw = value.ToString();
+        }
+
+        if (string.IsNullOrEmpty(raw))
+            return null;
+
+        string trimmed = raw.Trim();
+
+        if (bool.TryParse(trimmed, out bool _)                                  ||
+            string.Equals(trimmed, "true",  StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(trimmed, "false", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        if (string.Equals(NormalizeString(trimmed), key, StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        if (tag.Contains("{0}"))
+            return Regex.Replace(tag, @"\s*\{0\}\s*", " ").Trim();
+
+        return tag.Trim();
+    }
+
+    private string FindDictValue(IEnumerable dict, params string[] keys)
+    {
+        if (dict == null) return null;
+
+        try
+        {
+            foreach (DictionaryEntry e in dict)
+                if (e.Key is string k && keys.Any(target => string.Equals(k, target, StringComparison.OrdinalIgnoreCase)))
+                    return e.Value?.ToString();
+        }
+        catch (InvalidCastException)
+        {
+            try
             {
-                case Hashtable ht:
+                foreach (object item in dict)
                 {
-                    foreach (DictionaryEntry e in ht)
-                        if (e.Key is string k &&
-                            string.Equals(k, "version", StringComparison.OrdinalIgnoreCase))
-                        {
-                            version = e.Value?.ToString();
+                    if (item == null) continue;
 
-                            break;
-                        }
+                    Type         type      = item.GetType();
+                    PropertyInfo keyProp   = type.GetProperty("Key");
+                    PropertyInfo valueProp = type.GetProperty("Value");
 
-                    break;
-                }
+                    if (keyProp != null && valueProp != null)
+                    {
+                        string key = keyProp.GetValue(item)?.ToString();
 
-                case IDictionary dict:
-                {
-                    foreach (DictionaryEntry e in dict)
-                        if (e.Key is string k &&
-                            string.Equals(k, "version", StringComparison.OrdinalIgnoreCase))
-                        {
-                            version = e.Value?.ToString();
-
-                            break;
-                        }
-
-                    break;
-                }
-
-                case string str:
-                {
-                    Match m = Regex.Match(
-                            str,
-                            @"v?\s*([0-9]+(\.[0-9]+){1,3})",
-                            RegexOptions.IgnoreCase
-                    );
-
-                    if (m.Success)
-                        version = m.Groups[1].Value;
-
-                    break;
-                }
-
-                default:
-                {
-                    if (value != null)
-                        version = value.ToString();
-
-                    break;
+                        if (key != null && keys.Any(target => string.Equals(key, target, StringComparison.OrdinalIgnoreCase)))
+                            return valueProp.GetValue(item)?.ToString();
+                    }
                 }
             }
-
-            if (!string.IsNullOrEmpty(version))
-                return string.Format(tag, version);
+            catch
+            {
+                // ignored
+            }
         }
-
-        string valStr = value?.ToString() ?? "";
-
-        switch (key)
+        catch (Exception)
         {
-            case "cheese is gouda":
-                if (valStr.Contains("whoisthatmonke", StringComparison.OrdinalIgnoreCase))
-                    return "[<color=#808080>WITM!</color>]";
-
-                return valStr.Contains("whoischeating", StringComparison.OrdinalIgnoreCase) ? "[<color=#00a0ff>WIC</color>]" : "[WI]";
-
-            default:
-                return tag;
+            // ignored
         }
+
+        return null;
     }
 
     private bool HasCosmetx(VRRig rig)
@@ -479,11 +567,11 @@ public class TagUtils : MonoBehaviour
 
             if (Plugin.Instance.CheckMods.Value)
             {
-                string modFile = Plugin.Instance.Abbreviated.Value ? "Mods.txt" : "Mods_unabbreviated.txt";
+                string modFile = Plugin.Instance.AbbreviateMods.Value ? "FEMods.txt" : "FEMods_unabbreviated.txt";
                 try
                 {
                     string content = client.DownloadString($"{Plugin.ModsGitUrl}{modFile}");
-                    ParseKeyValues(content, cache);
+                    ParseKeyValues(content, cache, Constants.LegalMod);
                 }
                 catch
                 {
@@ -493,11 +581,11 @@ public class TagUtils : MonoBehaviour
 
             if (Plugin.Instance.CheckCheats.Value)
             {
-                string cheatFile = "Cheats.txt";
+                string cheatFile = "FECheats.txt";
                 try
                 {
                     string content = client.DownloadString($"{Plugin.ModsGitUrl}{cheatFile}");
-                    ParseKeyValues(content, cache);
+                    ParseKeyValues(content, cache, Constants.IllegalMod);
                 }
                 catch
                 {
@@ -513,18 +601,61 @@ public class TagUtils : MonoBehaviour
         return cache;
     }
 
-    private void ParseKeyValues(string content, Dictionary<string, string> dictionary)
+    private Dictionary<string, string> EventColorsCache()
+    {
+        Dictionary<string, string> cache = new(StringComparer.OrdinalIgnoreCase);
+
+        try
+        {
+            using WebClient client  = new();
+            string          content = client.DownloadString($"{Plugin.ModsGitUrl}FEEvents.txt");
+
+            foreach (string line in content.Split(['\n', '\r',], StringSplitOptions.RemoveEmptyEntries))
+            {
+                string[] parts = line.Split(['|',], 2, StringSplitOptions.None);
+                if (parts.Length == 2)
+                    cache[NormalizeString(parts[0])] = parts[1].Trim();
+            }
+        }
+        catch
+        {
+            // ignored
+        }
+
+        return cache;
+    }
+
+    private void ParseKeyValues(string content, Dictionary<string, string> dictionary, string color = null)
     {
         string[] lines = content.Split(['\n', '\r',], StringSplitOptions.RemoveEmptyEntries);
         foreach (string line in lines)
         {
-            string[] parts = line.Split(['$',], 2, StringSplitOptions.None);
+            string[] parts = line.Split(['|',], 2, StringSplitOptions.None);
             if (parts.Length == 2)
             {
-                string key = NormalizeString(parts[0]);
-                dictionary[key] = parts[1].Trim();
+                string key     = NormalizeString(parts[0]);
+                string _string = parts[1].Trim();
+
+                dictionary[key] = color != null ? FormatColoredTag(_string, color) : _string;
             }
         }
+    }
+
+    private string FormatColoredTag(string _string, string color)
+    {
+        const string versionSuffix = "v{0}";
+
+        if (_string.EndsWith(versionSuffix, StringComparison.OrdinalIgnoreCase))
+        {
+            string name = _string.Substring(0, _string.Length - versionSuffix.Length).TrimEnd();
+
+            return $"[<color={color}>{name}</color> {versionSuffix}]";
+        }
+
+        if (_string.Contains("{0}"))
+            return $"[{_string}]";
+
+        return $"[<color={color}>{_string}</color>]";
     }
 
     private static string NormalizeString(string input)
@@ -532,49 +663,12 @@ public class TagUtils : MonoBehaviour
         if (string.IsNullOrWhiteSpace(input))
             return string.Empty;
 
-        input = Regex.Replace(input, @"[\x00-\x1F\x7F]", "");
-        input = Regex.Replace(input, @"\\[nrtvbfa\\]+",  "");
+        input = ControlCharRegex.Replace(input, "");
+        input = EscapeSequenceRegex.Replace(input, "");
         input = input.Replace("\\", "");
-        input = Regex.Replace(input, @"\s+", " ");
+        input = WhitespaceRegex.Replace(input, " ");
 
         return input.Trim().ToLowerInvariant();
-    }
-
-    private bool ModSpoofCheck(object value)
-    {
-        switch (value)
-        {
-            case null:
-            case string str when str.StartsWith("System.", StringComparison.OrdinalIgnoreCase):
-                return false;
-
-            case string str when Regex.IsMatch(str, @"v?\s*\d+(\.\d+){1,3}", RegexOptions.IgnoreCase):
-                return true;
-
-            case string str:
-                return false;
-
-            case Hashtable ht:
-            {
-                foreach (DictionaryEntry e in ht)
-                    if (e.Key is string k && string.Equals(k, "version", StringComparison.OrdinalIgnoreCase))
-                        return true;
-
-                return false;
-            }
-
-            case IDictionary dict:
-            {
-                foreach (DictionaryEntry e in dict)
-                    if (e.Key is string k && string.Equals(k, "version", StringComparison.OrdinalIgnoreCase))
-                        return true;
-
-                return false;
-            }
-
-            default:
-                return false;
-        }
     }
 
     private DateTime? GetPlayerCreationDate(string playFabId)
