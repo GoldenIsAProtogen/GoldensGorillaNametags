@@ -7,7 +7,6 @@ using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using ExitGames.Client.Photon;
 using PlayFab;
 using PlayFab.ClientModels;
 using UnityEngine;
@@ -52,7 +51,7 @@ public class TagUtils : MonoBehaviour
     private static readonly DateTime                     AddedSteamPaymentDate  = new(2023, 02, 06);
     private static readonly Dictionary<string, DateTime> PlayerCreationDateDict = new();
 
-    private readonly        Dictionary<NametagData, bool> _platformFallbackState = new();
+    private readonly Dictionary<NametagData, bool> _platformFallbackState = new();
 
     private static readonly Regex ControlCharRegex    = new(@"[\x00-\x1F\x7F]", RegexOptions.Compiled);
     private static readonly Regex EscapeSequenceRegex = new(@"\\[nrtvbfa\\]+", RegexOptions.Compiled);

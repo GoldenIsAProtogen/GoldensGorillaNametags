@@ -71,8 +71,9 @@ public class GUIManager
                  waitingForKey,
                  accentValid;
 
-    private int   fpsFrames,
-                  builtRadiusKey;
+    private int fpsFrames,
+                builtRadiusKey;
+
     private float fpsTimer,
                   builtOpacity = -1f,
                   titleTextWidth;
@@ -307,7 +308,6 @@ public class GUIManager
         SetTextColors(rowValueStyle, _textSecondary);
     }
 
-    // Shrinks the header font (13 -> 8) until the title fits. Leaves headerStyle.fontSize at the chosen size.
     private void FitTitleFont(string text, float maxTextWidth)
     {
         GUIContent content = new(text);
@@ -359,8 +359,8 @@ public class GUIManager
         Color32   baseC  = color;
 
         for (int y = 0; y < size; y++)
-        for (int x = 0; x < size; x++)
-            pixels[y * size + x] = new Color32(baseC.r, baseC.g, baseC.b, (byte)(baseC.a * CornerAlpha(x, y, size, radius) + 0.5f));
+            for (int x = 0; x < size; x++)
+                pixels[y * size + x] = new Color32(baseC.r, baseC.g, baseC.b, (byte)(baseC.a * CornerAlpha(x, y, size, radius) + 0.5f));
 
         texture.SetPixels32(pixels);
         texture.Apply(false, true);
@@ -373,7 +373,6 @@ public class GUIManager
         int cx = Mathf.Clamp(x, radius, size - radius - 1);
         int cy = Mathf.Clamp(y, radius, size - radius - 1);
 
-        // Only pixels inside a corner square are anti-aliased
         if (x == cx || y == cy)
             return 1f;
 
@@ -418,8 +417,8 @@ public class GUIManager
         for (int i = 0; i < _pages.Length; i++)
         {
             Rect buttonRect = new(
-                    area.x + SidebarPadding,
-                    navStartY + i * (NavButtonHeight + NavButtonSpacing),
+                    area.x     + SidebarPadding,
+                    navStartY  + i              * (NavButtonHeight + NavButtonSpacing),
                     area.width - SidebarPadding * 2f,
                     NavButtonHeight);
 
@@ -434,7 +433,7 @@ public class GUIManager
             return;
 
         Rect footerRect  = new(area.x + 12f, area.yMax - 44f, area.width - 24f, 32f);
-        Rect versionRect = new(footerRect.x,                       footerRect.y, footerRect.width * 0.6f, footerRect.height);
+        Rect versionRect = new(footerRect.x, footerRect.y, footerRect.width                              * 0.6f, footerRect.height);
         Rect fpsRect     = new(footerRect.xMax - footerRect.width * 0.4f, footerRect.y, footerRect.width * 0.4f, footerRect.height);
 
         versionText ??= $"{Constants.Version}{Constants.BuildType}{Constants.BuildNumber}\n{Application.version}";
@@ -484,7 +483,7 @@ public class GUIManager
             return clicked;
 
         float barHeight = Mathf.Lerp(rect.height * 0.55f, rect.height - 4f, progress);
-        Rect  bar       = new(rect.x, rect.y + (rect.height - barHeight) * 0.5f, 3f, barHeight);
+        Rect  bar       = new(rect.x, rect.y                          + (rect.height - barHeight) * 0.5f, 3f, barHeight);
 
         GUI.color = Color.Lerp(accentIdle, accent, progress);
         GUI.DrawTexture(bar, Texture2D.whiteTexture);
@@ -496,8 +495,8 @@ public class GUIManager
     private void DrawContent(Rect area)
     {
         GUILayout.BeginArea(new Rect(
-                area.x + ContentPadding,
-                area.y + ContentPadding,
+                area.x      + ContentPadding,
+                area.y      + ContentPadding,
                 area.width  - ContentPadding * 2f,
                 area.height - ContentPadding * 2f));
 
@@ -583,7 +582,7 @@ public class GUIManager
         Rect rect = LayoutRect(48f);
 
         Rect track = new(rect.x  + 10f, rect.y + 30f, rect.width - 20f, 10f);
-        Rect hit   = new(track.x - 8f,  track.y - 8f, track.width + 16f, track.height + 16f);
+        Rect hit   = new(track.x - 8f, track.y - 8f, track.width + 16f, track.height + 16f);
 
         int   id = GUIUtility.GetControlID(FocusType.Passive);
         Event e  = Event.current;
@@ -615,8 +614,8 @@ public class GUIManager
         if (e.type != EventType.Repaint)
             return value;
 
-        GUI.Label(new Rect(rect.x    + 4f,                     rect.y + 4f, rect.width * 0.6f, 22f), label,                  rowLabelStyle);
-        GUI.Label(new Rect(rect.xMax - 4f - rect.width * 0.4f, rect.y + 4f, rect.width * 0.4f, 22f), value.ToString(format), rowValueStyle);
+        GUI.Label(new Rect(rect.x    + 4f, rect.y + 4f,                rect.width * 0.6f, 22f),                    label,                  rowLabelStyle);
+        GUI.Label(new Rect(rect.xMax - 4f         - rect.width * 0.4f, rect.y + 4f,       rect.width * 0.4f, 22f), value.ToString(format), rowValueStyle);
 
         GUI.backgroundColor = _buttonIdle;
         GUI.Box(track, GUIContent.none, trackStyle);
@@ -656,17 +655,16 @@ public class GUIManager
         return result;
     }
 
-    // Returns -1 for "<", 1 for ">", 0 for no click
     private int StepperRow(string label, string value)
     {
-        Rect rect = LayoutRect(42f);
-        float y   = rect.center.y - ButtonHeight * 0.5f;
+        Rect  rect = LayoutRect(42f);
+        float y    = rect.center.y - ButtonHeight * 0.5f;
 
         GUI.Label(new Rect(rect.x + 4f, rect.y, 110f, rect.height), label, rowLabelStyle);
 
-        Rect next  = new(rect.xMax - 4f - StepperButtonWidth,         y, StepperButtonWidth, ButtonHeight);
-        Rect prior = new(next.x - ButtonGap - StepperButtonWidth,     y, StepperButtonWidth, ButtonHeight);
-        Rect name  = new(rect.x + 118f, rect.y, prior.x - 8f - (rect.x + 118f), rect.height);
+        Rect next  = new(rect.xMax - 4f                    - StepperButtonWidth, y, StepperButtonWidth, ButtonHeight);
+        Rect prior = new(next.x    - ButtonGap             - StepperButtonWidth, y, StepperButtonWidth, ButtonHeight);
+        Rect name  = new(rect.x    + 118f, rect.y, prior.x - 8f - (rect.x + 118f), rect.height);
 
         GUI.Label(name, value, rowValueStyle);
 
@@ -676,7 +674,6 @@ public class GUIManager
         return 0;
     }
 
-    // Returns the index of the clicked button, or -1
     private int ActionRow(string label, string[] texts)
     {
         Rect rect = LayoutRect(42f);
@@ -721,12 +718,11 @@ public class GUIManager
         return new Color(r, g, b, a);
     }
 
-    // Font stepper + Refresh/Match/Apply row. Returns true when the font should be applied.
     private bool FontRows(string label, FontManager.FontTarget target, string[] actions, string matchFont)
     {
         int step = StepperRow(label, FontManager.GetSelectedFontDisplayName(target));
 
-        if (step < 0) FontManager.PreviousFont(target);
+        if (step      < 0) FontManager.PreviousFont(target);
         else if (step > 0) FontManager.NextFont(target);
 
         switch (ActionRow(null, actions))
@@ -741,7 +737,7 @@ public class GUIManager
 
                 return true;
 
-            case 2: return true;
+            case 2:  return true;
             default: return false;
         }
     }
@@ -770,8 +766,8 @@ public class GUIManager
         Plugin.TextFormatScope oldScope = _plugin.TextFormatScopeConfig.Value;
         Plugin.TextStyle       oldStyle = _plugin.TextStyleConfig.Value;
 
-        Plugin.TextCase        newCase  = (Plugin.TextCase)OptionRow("Text Case",         _textCaseNames, (int)oldCase);
-        Plugin.TextFormatScope newScope = (Plugin.TextFormatScope)OptionRow("Format Scope", _formatScopes, (int)oldScope);
+        Plugin.TextCase        newCase  = (Plugin.TextCase)OptionRow("Text Case",           _textCaseNames, (int)oldCase);
+        Plugin.TextFormatScope newScope = (Plugin.TextFormatScope)OptionRow("Format Scope", _formatScopes,  (int)oldScope);
 
         Gap();
 

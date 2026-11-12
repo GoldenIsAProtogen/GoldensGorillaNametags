@@ -126,8 +126,8 @@ public class Plugin : BaseUnityPlugin
 
     private void InitConfig()
     {
-        TagSize               = Config.Bind("Tags", "Size",         2f,                     "Nametag size");
-        TagHeight             = Config.Bind("Tags", "Height",       0.7f,                    "Nametag height");
+        TagSize               = Config.Bind("Tags", "Size",         2f,                       "Nametag size");
+        TagHeight             = Config.Bind("Tags", "Height",       0.7f,                     "Nametag height");
         UpdateInt             = Config.Bind("Tags", "Update Int",   0.01f,                    "Tag update interval");
         TextStyleConfig       = Config.Bind("Tags", "Style",        TextStyle.Normal,         "Text style");
         TextCaseConfig        = Config.Bind("Tags", "Case",         TextCase.Normal,          "Text casing: Normal, Uppercase, Lowercase, Titlecase");
@@ -141,10 +141,10 @@ public class Plugin : BaseUnityPlugin
 
         FontManager.Init(FontName, GuiFontName);
 
-        OutlineEnabled   = Config.Bind("Outlines", "Enabled",   true, "Tag outlines");
-        OutlineColor     = Config.Bind("Outlines", "Color",      Color.black, "Outline color");
-        OutlineThickness = Config.Bind("Outlines", "Thickness", 0.4f, "Outline thickness");
-        OutlineSoftness  = Config.Bind("Outlines", "Softness",  0.2f, "Outline softness (drop shadow)");
+        OutlineEnabled   = Config.Bind("Outlines", "Enabled",   true,        "Tag outlines");
+        OutlineColor     = Config.Bind("Outlines", "Color",     Color.black, "Outline color");
+        OutlineThickness = Config.Bind("Outlines", "Thickness", 0.4f,        "Outline thickness");
+        OutlineSoftness  = Config.Bind("Outlines", "Softness",  0.2f,        "Outline softness (drop shadow)");
 
         CheckModLists  = Config.Bind("Checks", "Mod Lists", true, "Check mod lists");
         CheckSpecial   = Config.Bind("Checks", "Special",   true, "Check special players");
@@ -198,7 +198,7 @@ public class Plugin : BaseUnityPlugin
     {
         guiManager?.Update();
 
-        if (_modListsChecked != CheckModLists.Value || _modsChecked   != CheckMods.Value   ||
+        if (_modListsChecked != CheckModLists.Value || _modsChecked != CheckMods.Value ||
             _cheatsChecked   != CheckCheats.Value   || _abbreviated != AbbreviateMods.Value)
         {
             if (TagUtils.Instance != null)
@@ -401,7 +401,7 @@ public class Plugin : BaseUnityPlugin
                 return null;
 
             Texture2D tex = new(2, 2, TextureFormat.RGBA32, false)
-            { filterMode = FilterMode.Point, };
+                    { filterMode = FilterMode.Point, };
 
             if (tex.LoadImage(fileData))
                 return tex;
