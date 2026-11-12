@@ -33,7 +33,7 @@ internal class GFriendUtils
 {
     private const string GorillaFriendsGuid = "net.rusjj.gorillafriends";
 
-    // Slightly edited from the original to avoid re-checking Chainloader
+    // lil edit from the original to avoid re-checking Chainloader
     private static readonly Lazy<bool> _installed = new(() => Chainloader.PluginInfos.ContainsKey(GorillaFriendsGuid));
 
     private static bool Installed() => _installed.Value;

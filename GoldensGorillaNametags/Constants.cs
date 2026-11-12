@@ -18,4 +18,10 @@ internal static class Constants
 #elif RELEASE
     public const string BuildType = "";
 #endif
+
+#if ALPHA || BETA
+    public const string BuildNumber = ".2";
+#elif DEBUG || RELEASE
+    public const string BuildNumber = "";
+#endif
 }

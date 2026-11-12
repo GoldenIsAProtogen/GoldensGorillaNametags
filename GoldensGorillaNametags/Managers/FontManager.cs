@@ -13,32 +13,34 @@ internal static class FontManager
 {
 #region ===== - Fields & Init - =====
 
-    private const string DefaultFontName = "DEFAULT";
+    private const string DefaultFontName  = "DEFAULT",
+                         SharedFolderName = "Goldens Mods Fonts";
 
-    private static readonly Dictionary<string, TMP_FontAsset> LoadedFonts = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<string, TMP_FontAsset> LoadedTmpFonts   = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<string, Font>          LoadedUnityFonts = new(StringComparer.OrdinalIgnoreCase);
+
+    private static readonly ConfigEntry<string>[] _fontEntries   = new ConfigEntry<string>[2];
+    private static readonly int[]                 _selectedIndex = [-1, -1,];
 
     private static List<string> availableFonts;
-    private static int          selectedIndex = -1;
+    private static string       _fontsDirectory;
 
-    private static ConfigEntry<string> _fontName;
+    internal static string FontsDirectory => _fontsDirectory ??= Path.Combine(Paths.ConfigPath, SharedFolderName);
 
-    private static string _fontsDirectory;
-
-    internal static string FontsDirectory => _fontsDirectory ??= Path.Combine(Paths.ConfigPath, $"{Constants.Guid} Fonts");
-
-    internal static void Init(ConfigEntry<string> fontName)
+    internal enum FontTarget
     {
-        _fontName = fontName;
+        Nametag,
+        Gui,
+    }
+
+    internal static void Init(ConfigEntry<string> nametagFont, ConfigEntry<string> guiFont)
+    {
+        _fontEntries[(int)FontTarget.Nametag] = nametagFont;
+        _fontEntries[(int)FontTarget.Gui]     = guiFont;
 
         EnsureDirectory();
         RefreshAvailableFonts();
-
-        selectedIndex = availableFonts.FindIndex(f => string.Equals(f, _fontName.Value, StringComparison.OrdinalIgnoreCase));
-        if (selectedIndex < 0)
-            selectedIndex = 0;
     }
-
-    private static bool IsReady => _fontName != null;
 
 #endregion
 
@@ -57,30 +59,47 @@ internal static class FontManager
         }
     }
 
+    private static bool IsFontFile(string path)
+    {
+        string ext = Path.GetExtension(path).ToLowerInvariant();
+
+        return ext == ".ttf" || ext == ".otf";
+    }
+
     internal static void RefreshAvailableFonts()
     {
-        availableFonts = new List<string> { DefaultFontName, };
+        string[] wanted = new string[_selectedIndex.Length];
+
+        for (int i = 0; i < wanted.Length; i++)
+            wanted[i] = _fontEntries[i]?.Value ?? DefaultFontName;
+
+        availableFonts = [DefaultFontName,];
 
         try
         {
             if (Directory.Exists(FontsDirectory))
                 foreach (string path in Directory.EnumerateFiles(FontsDirectory))
-                {
-                    string ext = Path.GetExtension(path).ToLowerInvariant();
-                    if (ext == ".ttf" || ext == ".otf")
+                    if (IsFontFile(path))
                         availableFonts.Add(Path.GetFileName(path));
-                }
         }
         catch
         {
             // ignored
         }
 
-        if (selectedIndex < 0 || selectedIndex >= availableFonts.Count)
-            selectedIndex = 0;
+        for (int i = 0; i < wanted.Length; i++)
+        {
+            string name  = wanted[i];
+            int    index = availableFonts.FindIndex(f => string.Equals(f, name, StringComparison.OrdinalIgnoreCase));
+
+            _selectedIndex[i] = index < 0 ? 0 : index;
+
+            if (index < 0)
+                SaveSelection((FontTarget)i);
+        }
     }
 
-    private static List<string> GetAvailableFontFiles()
+    private static List<string> GetAvailableFonts()
     {
         if (availableFonts == null)
             RefreshAvailableFonts();
@@ -92,78 +111,102 @@ internal static class FontManager
 
 #region ===== - Selection - =====
 
-    internal static string GetSelectedFontName()
+    internal static string GetSelectedFontName(FontTarget target)
     {
-        List<string> fonts = GetAvailableFontFiles();
+        List<string> fonts = GetAvailableFonts();
+        int          index = _selectedIndex[(int)target];
 
-        return fonts.Count == 0 ? DefaultFontName : fonts[selectedIndex];
+        return index >= 0 && index < fonts.Count ? fonts[index] : DefaultFontName;
     }
 
-    internal static void NextFont()
+    internal static string GetSelectedFontDisplayName(FontTarget target)
     {
-        List<string> fonts = GetAvailableFontFiles();
+        string name = GetSelectedFontName(target);
 
-        if (fonts.Count == 0) return;
-
-        selectedIndex = (selectedIndex + 1) % fonts.Count;
-        if (IsReady) _fontName.Value = GetSelectedFontName();
+        return name == DefaultFontName ? name : Path.GetFileNameWithoutExtension(name);
     }
 
-    internal static void PreviousFont()
+    internal static void NextFont(FontTarget target) => StepFont(target, 1);
+
+    internal static void PreviousFont(FontTarget target) => StepFont(target, -1);
+
+    internal static void MatchFont(FontTarget target, string fontName)
     {
-        List<string> fonts = GetAvailableFontFiles();
-
-        if (fonts.Count == 0) return;
-
-        selectedIndex = (selectedIndex - 1 + fonts.Count) % fonts.Count;
-        if (IsReady) _fontName.Value = GetSelectedFontName();
-    }
-
-    internal static void SelectFontByName(string fontName)
-    {
-        if (string.IsNullOrEmpty(fontName))
-            return;
-
-        List<string> fonts = GetAvailableFontFiles();
+        List<string> fonts = GetAvailableFonts();
         int          index = fonts.FindIndex(f => string.Equals(f, fontName, StringComparison.OrdinalIgnoreCase));
 
-        selectedIndex = index >= 0 ? index : 0;
-        if (IsReady) _fontName.Value = GetSelectedFontName();
+        _selectedIndex[(int)target] = index >= 0 ? index : 0;
+        SaveSelection(target);
     }
 
-    internal static List<string> GetAvailableFonts() => availableFonts ?? new List<string> { DefaultFontName, };
+    private static void StepFont(FontTarget target, int direction)
+    {
+        int count = GetAvailableFonts().Count;
+
+        _selectedIndex[(int)target] = ((_selectedIndex[(int)target] + direction) % count + count) % count;
+        SaveSelection(target);
+    }
+
+    private static void SaveSelection(FontTarget target)
+    {
+        ConfigEntry<string> entry = _fontEntries[(int)target];
+
+        if (entry != null)
+            entry.Value = GetSelectedFontName(target);
+    }
 
 #endregion
 
 #region ===== - Loading - =====
 
-    internal static TMP_FontAsset GetSelectedFont()
+    internal static TMP_FontAsset GetNametagFont()
     {
-        string name = GetSelectedFontName();
+        string name = GetSelectedFontName(FontTarget.Nametag);
 
-        return name == DefaultFontName ? FallbackFont() : LoadFont(name);
+        return name == DefaultFontName ? FallbackFont() : LoadTmpFont(name);
     }
 
-    internal static TMP_FontAsset LoadFont(string fileName)
-    {
-        if (string.IsNullOrEmpty(fileName) || fileName == DefaultFontName)
-            return FallbackFont();
+    internal static Font GetGuiFont(string name) => string.IsNullOrEmpty(name) || name == DefaultFontName ? null : LoadUnityFont(name);
 
-        if (LoadedFonts.TryGetValue(fileName, out TMP_FontAsset cached) && cached != null)
+    private static Font LoadUnityFont(string fileName)
+    {
+        if (LoadedUnityFonts.TryGetValue(fileName, out Font cached) && cached != null)
             return cached;
 
         string fullPath = Path.Combine(FontsDirectory, fileName);
 
         if (!File.Exists(fullPath))
+            return null;
+
+        try
+        {
+            Font font = new(fullPath);
+            LoadedUnityFonts[fileName] = font;
+
+            return font;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static TMP_FontAsset LoadTmpFont(string fileName)
+    {
+        if (LoadedTmpFonts.TryGetValue(fileName, out TMP_FontAsset cached) && cached != null)
+            return cached;
+
+        Font unityFont = LoadUnityFont(fileName);
+
+        if (unityFont == null)
             return FallbackFont();
 
         try
         {
-            Font          unityFont = new(fullPath);
-            TMP_FontAsset asset     = TMP_FontAsset.CreateFontAsset(unityFont, 90, 9, GlyphRenderMode.SDFAA, 1024, 1024);
+            TMP_FontAsset asset = TMP_FontAsset.CreateFontAsset(unityFont, 90, 9, GlyphRenderMode.SDFAA, 1024, 1024);
             asset.material.shader = Shader.Find("TextMeshPro/Distance Field");
 
-            LoadedFonts[fileName] = asset;
+            LoadedTmpFonts[fileName] = asset;
 
             return asset;
         }
@@ -177,11 +220,11 @@ internal static class FontManager
     {
         const string cacheKey = "__fallback";
 
-        if (LoadedFonts.TryGetValue(cacheKey, out TMP_FontAsset cached) && cached != null)
+        if (LoadedTmpFonts.TryGetValue(cacheKey, out TMP_FontAsset cached) && cached != null)
             return cached;
 
         TMP_FontAsset asset = Resources.Load<TMP_FontAsset>("Fonts & Materials/Arial SDF");
-        LoadedFonts[cacheKey] = asset;
+        LoadedTmpFonts[cacheKey] = asset;
 
         return asset;
     }

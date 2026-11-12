@@ -57,10 +57,10 @@ public class Plugin : BaseUnityPlugin
     public Camera    CineCam;
     public Transform MainCam;
 
-    public TMP_FontAsset Font => FontManager.GetSelectedFont();
+    public TMP_FontAsset Font => FontManager.GetNametagFont();
 
-    public string FormatPrefix = "";
-    public string FormatSuffix = "";
+    public string FormatPrefix = "",
+                  FormatSuffix = "";
 
     public readonly Regex ColorTagRegex = new("<color=[^>]+>|</color>", RegexOptions.Compiled);
 
@@ -79,13 +79,13 @@ public class Plugin : BaseUnityPlugin
     private bool tagsEnabled;
 
     public ConfigEntry<Key>    GuiButton;
-    public ConfigEntry<string> IconLocation, FontName;
+    public ConfigEntry<string> IconLocation, FontName, GuiFontName;
 
-    public ConfigEntry<Color> OutlineColor;
+    public ConfigEntry<Color> OutlineColor, GuiAccentColor;
 
     public ConfigEntry<bool> OutlineEnabled, CheckModLists, CheckMods, CheckCheats, AbbreviateMods, EstimateFPS, EstimatePing, CheckPlatform, CheckSpecial, CheckFps, CheckPing, CheckCosmetics, GorillaFriends, UsePlatIcons;
 
-    public ConfigEntry<float> TagSize, TagHeight, UpdateInt, OutlineThickness, OutlineSoftness, IconSize;
+    public ConfigEntry<float> TagSize, TagHeight, UpdateInt, OutlineThickness, OutlineSoftness, IconSize, GuiCornerRadius, GuiOpacity;
 
     public ConfigEntry<TextCase>        TextCaseConfig;
     public ConfigEntry<TextFormatScope> TextFormatScopeConfig;
@@ -126,27 +126,30 @@ public class Plugin : BaseUnityPlugin
 
     private void InitConfig()
     {
-        TagSize               = Config.Bind("Tags", "Size",         2.5f,                     "Nametag size");
-        TagHeight             = Config.Bind("Tags", "Height",       0.85f,                    "Nametag height");
+        TagSize               = Config.Bind("Tags", "Size",         2f,                     "Nametag size");
+        TagHeight             = Config.Bind("Tags", "Height",       0.7f,                    "Nametag height");
         UpdateInt             = Config.Bind("Tags", "Update Int",   0.01f,                    "Tag update interval");
         TextStyleConfig       = Config.Bind("Tags", "Style",        TextStyle.Normal,         "Text style");
         TextCaseConfig        = Config.Bind("Tags", "Case",         TextCase.Normal,          "Text casing: Normal, Uppercase, Lowercase, Titlecase");
-        TextFormatScopeConfig = Config.Bind("Tags", "Format Scope", TextFormatScope.NameOnly, "Choose whether formatting applies only to player names or to all text.");
+        TextFormatScopeConfig = Config.Bind("Tags", "Format Scope", TextFormatScope.NameOnly, "Whether formatting only changes Name or All text");
 
         FontName = Config.Bind("Tags", "Font Name", "DEFAULT",
-                "The currently selected nametag font file. \"DEFAULT\" uses the built-in Arial SDF. Change this via the in-game GUI's font arrows, not by hand.");
+                "The currently selected nametag font. \"DEFAULT\" uses the built-in Arial font");
 
-        FontManager.Init(FontName);
+        GuiFontName = Config.Bind("GUI", "Font Name", "DEFAULT",
+                "The currently selected GUI font. \"DEFAULT\" uses Unity's built-in font");
 
-        OutlineEnabled   = Config.Bind("Outlines", "Enabled",   true,        "Tag outlines");
-        OutlineColor     = Config.Bind("Outlines", "Color",     Color.black, "Outline color");
-        OutlineThickness = Config.Bind("Outlines", "Thickness", 0.4f,        "Outline thickness");
-        OutlineSoftness  = Config.Bind("Outlines", "Softness",  0.2f,        "Outline softness (drop shadow)");
+        FontManager.Init(FontName, GuiFontName);
+
+        OutlineEnabled   = Config.Bind("Outlines", "Enabled",   true, "Tag outlines");
+        OutlineColor     = Config.Bind("Outlines", "Color",      Color.black, "Outline color");
+        OutlineThickness = Config.Bind("Outlines", "Thickness", 0.4f, "Outline thickness");
+        OutlineSoftness  = Config.Bind("Outlines", "Softness",  0.2f, "Outline softness (drop shadow)");
 
         CheckModLists  = Config.Bind("Checks", "Mod Lists", true, "Check mod lists");
         CheckSpecial   = Config.Bind("Checks", "Special",   true, "Check special players");
         CheckFps       = Config.Bind("Checks", "FPS",       true, "Check FPS");
-        CheckPing      = Config.Bind("Checks", "Ping",      true, "Check Ping (Ping estimation, not 100% accurate)");
+        CheckPing      = Config.Bind("Checks", "Ping",      true, "Check Ping");
         CheckCosmetics = Config.Bind("Checks", "Cosmetics", true, "Check cosmetics");
         CheckPlatform  = Config.Bind("Checks", "Platform",  true, "Check platform");
 
@@ -158,12 +161,15 @@ public class Plugin : BaseUnityPlugin
         CheckCheats    = Config.Bind("Mods", "Cheats",      true, "Show Cheats");
         AbbreviateMods = Config.Bind("Mods", "Abbreviated", true, "Abbreviated");
 
-        GorillaFriends = Config.Bind("Integrations", "GorillaFriends", false, "Use GorillaFriends");
+        GorillaFriends = Config.Bind("Integrations", "GorillaFriends", false, "GorillaFriends name coloring (Requires GorillaFriends)");
 
         EstimateFPS  = Config.Bind("Miscellaneous", "Estimate FPS",  false, "Whether or not you estimate FPS");
         EstimatePing = Config.Bind("Miscellaneous", "Estimate Ping", false, "Whether or not you estimate ping");
 
-        GuiButton = Config.Bind("GUI", "Toggle Key", Key.F4, "Key to toggle the GUI");
+        GuiButton       = Config.Bind("GUI", "Toggle Key",    Key.F4,                         "Key to toggle GUI");
+        GuiCornerRadius = Config.Bind("GUI", "Corner Radius", 0f,                             "How rounded the GUI is");
+        GuiOpacity      = Config.Bind("GUI", "Opacity",       1f,                             "GUI opacity");
+        GuiAccentColor  = Config.Bind("GUI", "Accent Color",  new Color(0.93f, 0.91f, 0.67f), "Accent color");
     }
 
     private void InitCam()
@@ -339,7 +345,7 @@ public class Plugin : BaseUnityPlugin
 
         (string, string)[] icons = new[]
         {
-                ("steamicon.png", $"{MainGitUrl}Icons/steamicon.png"), ("pcvricon.png", $"{MainGitUrl}Icons/pcvricon.png"), ("questpcicon.png", $"{MainGitUrl}Icons/questpcicon.png"), ("questicon.png", $"{MainGitUrl}/questicon.png"), ("maybeicon.png", $"{MainGitUrl}Icons/maybeicon.png"),
+                ("steamicon.png", $"{MainGitUrl}Icons/steamicon.png"), ("pcvricon.png", $"{MainGitUrl}Icons/pcvricon.png"), ("questpcicon.png", $"{MainGitUrl}Icons/questpcicon.png"), ("questicon.png", $"{MainGitUrl}Icons/questicon.png"), ("maybeicon.png", $"{MainGitUrl}Icons/maybeicon.png"),
         };
 
         foreach ((string fileName, string url) in icons)
@@ -394,8 +400,8 @@ public class Plugin : BaseUnityPlugin
             if (fileData.Length == 0)
                 return null;
 
-            Texture2D tex = new(2, 2, TextureFormat.RGBA32, false);
-            tex.filterMode = FilterMode.Point;
+            Texture2D tex = new(2, 2, TextureFormat.RGBA32, false)
+            { filterMode = FilterMode.Point, };
 
             if (tex.LoadImage(fileData))
                 return tex;

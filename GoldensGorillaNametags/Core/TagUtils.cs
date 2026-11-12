@@ -8,7 +8,6 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using ExitGames.Client.Photon;
-using Photon.Pun;
 using PlayFab;
 using PlayFab.ClientModels;
 using UnityEngine;
@@ -214,7 +213,7 @@ public class TagUtils : MonoBehaviour
         if (playerCreationDate.HasValue && playerCreationDate.Value > AddedSteamPaymentDate)
             return Plugin.Instance.QuestTex;
 
-        return Plugin.Instance.MaybeTex; //was null before
+        return Plugin.Instance.MaybeTex;
     }
 
 #endregion
@@ -383,24 +382,6 @@ public class TagUtils : MonoBehaviour
         return sb.ToString().Trim();
     }
 
-    private string BuildEventTag(string str1, string str2)
-    {
-        string color        = GetEventColor(str2);
-        string coloredLabel = $"<color={color}>{str2}</color>";
-
-        return str1.Length == 16
-                       ? $"[{coloredLabel}]"
-                       : $"[{coloredLabel} v{str1}]";
-    }
-
-    private string GetEventColor(string str2)
-    {
-        if (eventColorsCache != null && eventColorsCache.TryGetValue(NormalizeString(str2), out string color))
-            return $"#{color}";
-
-        return "#ffffff";
-    }
-
     private string FormatModValue(string key, string tag, object value)
     {
         if (value == null) return null;
@@ -567,7 +548,7 @@ public class TagUtils : MonoBehaviour
 
             if (Plugin.Instance.CheckMods.Value)
             {
-                string modFile = Plugin.Instance.AbbreviateMods.Value ? "FEMods.txt" : "FEMods_unabbreviated.txt";
+                string modFile = Plugin.Instance.AbbreviateMods.Value ? "Mods.txt" : "Mods_unabbreviated.txt";
                 try
                 {
                     string content = client.DownloadString($"{Plugin.ModsGitUrl}{modFile}");
@@ -581,7 +562,7 @@ public class TagUtils : MonoBehaviour
 
             if (Plugin.Instance.CheckCheats.Value)
             {
-                string cheatFile = "FECheats.txt";
+                string cheatFile = "Cheats.txt";
                 try
                 {
                     string content = client.DownloadString($"{Plugin.ModsGitUrl}{cheatFile}");
@@ -591,30 +572,6 @@ public class TagUtils : MonoBehaviour
                 {
                     // ignored
                 }
-            }
-        }
-        catch
-        {
-            // ignored
-        }
-
-        return cache;
-    }
-
-    private Dictionary<string, string> EventColorsCache()
-    {
-        Dictionary<string, string> cache = new(StringComparer.OrdinalIgnoreCase);
-
-        try
-        {
-            using WebClient client  = new();
-            string          content = client.DownloadString($"{Plugin.ModsGitUrl}FEEvents.txt");
-
-            foreach (string line in content.Split(['\n', '\r',], StringSplitOptions.RemoveEmptyEntries))
-            {
-                string[] parts = line.Split(['|',], 2, StringSplitOptions.None);
-                if (parts.Length == 2)
-                    cache[NormalizeString(parts[0])] = parts[1].Trim();
             }
         }
         catch

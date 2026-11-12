@@ -412,7 +412,7 @@ public class TagManager : MonoBehaviour
             }
             catch
             {
-                /* ignored */
+                // ignored
             }
         }
     }
