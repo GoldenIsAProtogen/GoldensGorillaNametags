@@ -20,7 +20,7 @@ internal static class Constants
 #endif
 
 #if ALPHA || BETA
-    public const string BuildNumber = ".4";
+    public const string BuildNumber = ".5";
 #elif DEBUG || RELEASE
     public const string BuildNumber = "";
 #endif

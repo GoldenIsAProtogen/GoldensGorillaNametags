@@ -14,16 +14,16 @@ public class TagManager : MonoBehaviour
 
     private const           float      TagUpdateTime = 0.3f;
     public static           TagManager Instance;
-    private static readonly Vector3    BaseScale = Vector3.one * 0.8f;
+    private static readonly Vector3    BaseScale         = Vector3.one * 0.8f;
+    private static readonly Regex      NameTagStripRegex = new(@"<.*?>", RegexOptions.Compiled);
 
     private readonly Dictionary<VRRig, float>       lastTagUpdate = new();
     private readonly Dictionary<VRRig, NametagData> tagMap        = new();
-
-    private readonly List<VRRig> _rigsToRemoveBuffer = new();
-
-    private static readonly Regex NameTagStripRegex = new(@"<.*?>", RegexOptions.Compiled);
+    private readonly List<VRRig>                    removeBuffer  = new();
 
     private void Awake() => Instance = this;
+
+    private static bool IsInvalid(VRRig rig) => rig == null || rig.isOfflineVRRig || rig.Creator == null;
 
 #endregion
 
@@ -31,29 +31,17 @@ public class TagManager : MonoBehaviour
 
     public void CleanupTags(HashSet<VRRig> validRigs)
     {
-        _rigsToRemoveBuffer.Clear();
+        removeBuffer.Clear();
 
-        foreach (KeyValuePair<VRRig, NametagData> kv in tagMap)
+        foreach (VRRig rig in tagMap.Keys)
+            if (IsInvalid(rig) || !validRigs.Contains(rig))
+                removeBuffer.Add(rig);
+
+        foreach (VRRig rig in removeBuffer)
         {
-            VRRig rig = kv.Key;
+            if (tagMap.Remove(rig, out NametagData data))
+                DestroyTag(data);
 
-            if (rig == null || !validRigs.Contains(rig) || rig.isOfflineVRRig || rig.Creator == null)
-                _rigsToRemoveBuffer.Add(rig);
-        }
-
-        foreach (VRRig rig in _rigsToRemoveBuffer)
-        {
-            if (tagMap.TryGetValue(rig, out NametagData data))
-            {
-                if (data.ImageUpdateCoroutine != null)
-                    StopCoroutine(data.ImageUpdateCoroutine);
-
-                CleanupOutlines(data);
-                if (data.Container != null)
-                    Destroy(data.Container);
-            }
-
-            tagMap.Remove(rig);
             lastTagUpdate.Remove(rig);
         }
     }
@@ -61,84 +49,68 @@ public class TagManager : MonoBehaviour
     public void CreateTagmap(HashSet<VRRig> validRigs)
     {
         foreach (VRRig rig in validRigs)
-        {
-            if (rig == null || rig.isOfflineVRRig || rig.Creator == null)
-                continue;
-
-            if (tagMap.ContainsKey(rig))
-                continue;
-
-            tagMap[rig] = CreateTags(rig);
-        }
+            if (!IsInvalid(rig) && !tagMap.ContainsKey(rig))
+                tagMap[rig] = CreateTags(rig);
     }
 
     private NametagData CreateTags(VRRig rig)
     {
-        NametagData data = new();
+        Plugin p = Plugin.Instance;
 
-        data.Container = new GameObject("NametagContainer");
-        data.Container.transform.SetParent(rig.transform, false);
-        data.Container.transform.localScale    = BaseScale;
-        data.Container.transform.localPosition = new Vector3(0f, Plugin.Instance.TagHeight.Value, 0f);
+        GameObject container = new("NametagContainer");
+        container.transform.SetParent(rig.transform, false);
+        container.transform.localScale    = BaseScale;
+        container.transform.localPosition = new Vector3(0f, p.TagHeight.Value, 0f);
 
-        GameObject mainTxtGo = new("NametagMain");
-        mainTxtGo.transform.SetParent(data.Container.transform, false);
-        mainTxtGo.transform.localPosition = Vector3.zero;
-        mainTxtGo.transform.localScale    = new Vector3(0.8f, 0.8f, 0.8f);
+        GameObject mainGo = new("NametagMain");
+        mainGo.transform.SetParent(container.transform, false);
+        mainGo.transform.localScale = BaseScale;
 
-        data.MainText = mainTxtGo.AddComponent<TextMeshPro>();
-        TagTextSpecifications(data.MainText);
+        TextMeshPro text = mainGo.AddComponent<TextMeshPro>();
+        text.alignment        = TextAlignmentOptions.Center;
+        text.fontSize         = p.TagSize.Value;
+        text.font             = p.Font;
+        text.textWrappingMode = TextWrappingModes.Normal;
+        text.richText         = true;
 
-        data.PlatformIconObj = new GameObject("PlatformIcon");
-        data.PlatformIconObj.transform.SetParent(mainTxtGo.transform, false);
-        data.PlatformIconObj.transform.localPosition = Vector3.zero;
-        data.PlatformIconObj.transform.localScale    = Vector3.one * (Plugin.Instance.IconSize.Value * Plugin.Instance.TagSize.Value);
+        GameObject iconGo = new("PlatformIcon");
+        iconGo.transform.SetParent(mainGo.transform, false);
 
-        data.PlatformIconRenderer              = data.PlatformIconObj.AddComponent<SpriteRenderer>();
-        data.PlatformIconRenderer.sortingOrder = 10;
-        data.PlatformIconRenderer.gameObject.SetActive(false);
+        SpriteRenderer iconRenderer = iconGo.AddComponent<SpriteRenderer>();
+        iconRenderer.sortingOrder = 10;
+        iconGo.SetActive(false);
+
+        NametagData data = new()
+        {
+                Container            = container,
+                MainText             = text,
+                PlatformIconObj      = iconGo,
+                PlatformIconRenderer = iconRenderer,
+        };
 
         data.ImageUpdateCoroutine = StartCoroutine(TagUtils.Instance.UpdatePlatformIconCoroutine(rig, data));
 
         return data;
     }
 
-    private void TagTextSpecifications(TextMeshPro text)
-    {
-        text.alignment        = TextAlignmentOptions.Center;
-        text.fontSize         = Plugin.Instance.TagSize.Value;
-        text.font             = Plugin.Instance.Font;
-        text.textWrappingMode = TextWrappingModes.Normal;
-        text.richText         = true;
-
-        if (text.fontSharedMaterial != null)
-        {
-            text.fontSharedMaterial.DisableKeyword("OUTLINE_ON");
-            text.fontMaterial = text.fontSharedMaterial;
-        }
-    }
-
     public void ClearTags()
     {
-        foreach (KeyValuePair<VRRig, NametagData> kevVal in tagMap)
-        {
-            VRRig       rig  = kevVal.Key;
-            NametagData data = kevVal.Value;
-
-            if (data != null)
-            {
-                if (data.ImageUpdateCoroutine != null)
-                    StopCoroutine(data.ImageUpdateCoroutine);
-
-                CleanupOutlines(data);
-
-                if (data.Container != null)
-                    Destroy(data.Container);
-            }
-        }
+        foreach (NametagData data in tagMap.Values)
+            DestroyTag(data);
 
         tagMap.Clear();
         lastTagUpdate.Clear();
+    }
+
+    private void DestroyTag(NametagData data)
+    {
+        if (data == null) return;
+
+        if (data.ImageUpdateCoroutine != null)
+            StopCoroutine(data.ImageUpdateCoroutine);
+
+        if (data.Container != null)
+            Destroy(data.Container);
     }
 
 #endregion
@@ -147,70 +119,50 @@ public class TagManager : MonoBehaviour
 
     public void UpdateTags()
     {
-        float currentTime = Time.time;
+        float     time = Time.time;
+        Transform cam  = Plugin.Instance.CineCam != null ? Plugin.Instance.CineCam.transform : Plugin.Instance.MainCam;
 
         foreach (KeyValuePair<VRRig, NametagData> kv in tagMap)
         {
             VRRig       rig  = kv.Key;
             NametagData data = kv.Value;
 
-            if (rig == null || data?.Container == null || rig.isOfflineVRRig || rig.Creator == null)
+            if (IsInvalid(rig) || data?.Container == null)
                 continue;
 
-            Cam(data.Container.transform);
+            if (cam != null)
+            {
+                Transform tag = data.Container.transform;
+                tag.rotation = Quaternion.LookRotation(tag.position - cam.position);
+            }
 
-            if (!lastTagUpdate.TryGetValue(rig, out float lastUpdate) || currentTime - lastUpdate >= TagUpdateTime)
+            if (!lastTagUpdate.TryGetValue(rig, out float last) || time - last >= TagUpdateTime)
             {
                 UpdateTagContent(rig, data);
-                lastTagUpdate[rig] = currentTime;
+                lastTagUpdate[rig] = time;
             }
 
             UpdatePlatformIcon(data);
         }
     }
 
-    private void Cam(Transform tagTransform)
-    {
-        if (tagTransform == null) return;
-
-        Transform cameraTransform = Plugin.Instance.CineCam != null ? Plugin.Instance.CineCam.transform : Plugin.Instance.MainCam;
-
-        if (cameraTransform == null) return;
-
-        tagTransform.LookAt(cameraTransform.position);
-        tagTransform.Rotate(0f, 180f, 0f);
-
-        int childCount = tagTransform.childCount;
-        for (int i = 0; i < childCount; i++)
-        {
-            Transform child = tagTransform.GetChild(i);
-            if (child.name != "PlatformIcon")
-                child.localRotation = Quaternion.identity;
-        }
-    }
-
     private void UpdateTagContent(VRRig rig, NametagData data)
     {
-        data.Container.transform.localPosition = new Vector3(0f, Plugin.Instance.TagHeight.Value, 0f);
+        Plugin p = Plugin.Instance;
 
-        if (!Mathf.Approximately(data.MainText.fontSize, Plugin.Instance.TagSize.Value))
-            data.MainText.fontSize = Plugin.Instance.TagSize.Value;
+        data.Container.transform.localPosition = new Vector3(0f, p.TagHeight.Value, 0f);
+        data.MainText.fontSize                 = p.TagSize.Value;
 
         string text = CreateTagText(rig);
 
-        bool textChanged = data.LastText != text;
-
-        if (textChanged)
+        if (data.LastText != text)
         {
-            data.MainText.text = text;
-            data.LastText      = text;
-            UpdateTextColor(rig, data.MainText);
+            data.MainText.text  = text;
+            data.LastText       = text;
+            data.MainText.color = PlayerColor(rig);
         }
 
-        UpdateOutlines(data);
-
-        if (textChanged && Plugin.Instance.UsePlatIcons.Value)
-            UpdateIconPosition(data);
+        UpdateOutline(data.MainText);
     }
 
 #endregion
@@ -219,54 +171,31 @@ public class TagManager : MonoBehaviour
 
     private void UpdatePlatformIcon(NametagData data)
     {
-        if (data.PlatformIconRenderer == null)
-            return;
+        if (data.PlatformIconRenderer == null) return;
 
-        bool shouldBeVisible = Plugin.Instance.UsePlatIcons.Value && data.CurrentPlatformTex != null;
+        Plugin p       = Plugin.Instance;
+        bool   visible = p.UsePlatIcons.Value && data.CurrentPlatformTex != null;
 
-        if (shouldBeVisible)
-        {
-            UpdateIconPosition(data);
-            data.PlatformIconRenderer.gameObject.SetActive(true);
-        }
-        else
-        {
-            data.PlatformIconRenderer.gameObject.SetActive(false);
-        }
-    }
+        data.PlatformIconRenderer.gameObject.SetActive(visible);
 
-    private void UpdateIconPosition(NametagData data)
-    {
-        if (data.PlatformIconObj == null) return;
+        if (!visible) return;
 
-        float yOffset    = 0f;
-        float lineHeight = Plugin.Instance.TagSize.Value * 1.2f;
+        float tagSize  = p.TagSize.Value;
+        float iconSize = p.IconSize.Value * tagSize;
 
-        if (Plugin.Instance.CheckSpecial.Value)
-            yOffset -= lineHeight * 0.017f;
+        float y = 0f;
+        if (p.CheckSpecial.Value)                  y -= 0.017f;
+        if (p.CheckFps.Value || p.CheckPing.Value) y -= 0.01f;
+        if (p.CheckCosmetics.Value)                y -= 0.01f;
+        y *= tagSize * 1.2f;
 
-        if (Plugin.Instance.CheckFps.Value || Plugin.Instance.CheckPing.Value)
-            yOffset -= lineHeight * 0.01f;
+        float x = 0.72f * tagSize + iconSize * 0.55f;
+        if (p.IconLocation.Value.ToLower() == "left")
+            x = -x;
 
-        if (Plugin.Instance.CheckPlatform.Value && !Plugin.Instance.UsePlatIcons.Value ||
-            Plugin.Instance.CheckCosmetics.Value)
-            yOffset -= lineHeight * 0.01f;
-
-        string location = Plugin.Instance.IconLocation.Value.ToLower();
-        float  iconSize = Plugin.Instance.IconSize.Value * Plugin.Instance.TagSize.Value;
-        float  xOffset  = 0f;
-        float  padding  = iconSize * 0.05f;
-
-        float nameWidth = 12f * Plugin.Instance.TagSize.Value * 0.12f;
-
-        if (location == "left")
-            xOffset = -(nameWidth * 0.5f) - iconSize * 0.5f - padding;
-        else // right
-            xOffset = nameWidth * 0.5f + iconSize * 0.5f + padding;
-
-        data.PlatformIconObj.transform.localPosition = new Vector3(xOffset, yOffset, -0.01f);
-
-        data.PlatformIconObj.transform.localScale = Vector3.one * iconSize;
+        Transform icon = data.PlatformIconRenderer.transform;
+        icon.localPosition = new Vector3(x, y, -0.01f);
+        icon.localScale    = Vector3.one * iconSize;
     }
 
 #endregion
@@ -275,88 +204,69 @@ public class TagManager : MonoBehaviour
 
     private string CreateTagText(VRRig rig)
     {
-        StringBuilder stringBuilder = new(128);
+        Plugin   p     = Plugin.Instance;
+        TagUtils utils = TagUtils.Instance;
 
-        if (Plugin.Instance.CheckSpecial.Value)
+        StringBuilder sb = new(128);
+
+        if (p.CheckSpecial.Value)
         {
-            string specialTag = TagUtils.Instance.SpecialPlayerTag(rig);
-            if (!string.IsNullOrEmpty(specialTag))
-                stringBuilder.AppendLine($"<size=70%>{specialTag}</size>");
+            string special = utils.SpecialPlayerTag(rig);
+            if (!string.IsNullOrEmpty(special))
+                sb.AppendLine($"<size=70%>{special}</size>");
         }
 
-        if (Plugin.Instance.CheckFps.Value || Plugin.Instance.CheckPing.Value)
+        if (p.CheckFps.Value || p.CheckPing.Value)
         {
-            if (Plugin.Instance.CheckFps.Value)
+            if (p.CheckFps.Value)
             {
-                int fps = Plugin.Instance.EstimateFPS.Value ? rig.fps : rig.rigContainer.m_playerStats.FPS;
-                stringBuilder.Append("<color=").Append(TagUtils.Instance.FpsColor(fps)).Append('>').Append(fps).Append("</color>");
+                int fps = p.EstimateFPS.Value ? rig.fps : rig.rigContainer.m_playerStats.FPS;
+                sb.Append($"<color={utils.FpsColor(fps)}>{fps}</color>");
             }
 
-            if (Plugin.Instance.CheckPing.Value)
+            if (p.CheckPing.Value)
             {
-                int ping = Plugin.Instance.EstimatePing.Value ? rig.ping() : rig.rigContainer.m_playerStats.Ping;
+                int ping = p.EstimatePing.Value ? rig.ping() : rig.rigContainer.m_playerStats.Ping;
 
-                if (Plugin.Instance.CheckFps.Value)
-                    stringBuilder.Append(" <color=white>|</color> ");
+                if (p.CheckFps.Value)
+                    sb.Append(" <color=white>|</color> ");
 
-                stringBuilder.Append("<color=").Append(TagUtils.Instance.PingColor(ping)).Append('>').Append(ping).Append("</color>");
+                sb.Append($"<color={utils.PingColor(ping)}>{ping}</color>");
             }
 
-            stringBuilder.Append('\n');
+            sb.Append('\n');
         }
 
-        string platformTag  = Plugin.Instance.CheckPlatform.Value && !Plugin.Instance.UsePlatIcons.Value ? TagUtils.Instance.PlatformTag(rig) : string.Empty;
-        string cosmeticsTag = Plugin.Instance.CheckCosmetics.Value ? TagUtils.Instance.SpecialCosmeticsTag(rig) : string.Empty;
+        string extras = (p.CheckPlatform.Value && !p.UsePlatIcons.Value ? utils.PlatformTag(rig) : "")
+                      + (p.CheckCosmetics.Value ? utils.SpecialCosmeticsTag(rig) : "");
 
-        if (Plugin.Instance.CheckPlatform.Value && !Plugin.Instance.UsePlatIcons.Value && Plugin.Instance.CheckCosmetics.Value)
+        if (!string.IsNullOrEmpty(extras))
+            sb.Append($"<color=white>{extras}</color>\n");
+
+        string name = NameTagStripRegex.Replace(rig.Creator.NickName ?? string.Empty, string.Empty);
+
+        if (name.Length > 12)
+            name = name.Substring(0, 12) + "...";
+
+        if (p.TextFormatScopeConfig.Value == Plugin.TextFormatScope.NameOnly)
+            name = p.TextFormat(name);
+
+        sb.AppendLine(name);
+
+        if (p.CheckMods.Value)
         {
-            if (!string.IsNullOrEmpty(platformTag) || !string.IsNullOrEmpty(cosmeticsTag))
-                stringBuilder.Append($"<color=white>{platformTag}{cosmeticsTag}</color>\n");
-        }
-        else if (Plugin.Instance.CheckCosmetics.Value && !string.IsNullOrEmpty(cosmeticsTag))
-        {
-            stringBuilder.Append($"<color=white>{cosmeticsTag}</color>\n");
-        }
-        else if (Plugin.Instance.CheckPlatform.Value && !Plugin.Instance.UsePlatIcons.Value && !string.IsNullOrEmpty(platformTag))
-        {
-            stringBuilder.Append($"<color=white>{platformTag}</color>\n");
+            string mods = utils.PlayerModsTag(rig);
+            if (!string.IsNullOrEmpty(mods))
+                sb.Append($"<color=white><size=70%>{mods}</size></color>");
         }
 
-        string SanitizePlayerName(string unsanitizedPlayerName)
-            => string.IsNullOrEmpty(unsanitizedPlayerName) ? "" : NameTagStripRegex.Replace(unsanitizedPlayerName, string.Empty);
-
-        string playerName = rig.Creator.NickName;
-        playerName = SanitizePlayerName(playerName);
-
-        string displayName = playerName.Length > 12 ? playerName.Substring(0, 12) + "..." : playerName;
-
-        if (Plugin.Instance.TextFormatScopeConfig.Value == Plugin.TextFormatScope.NameOnly)
-            displayName = Plugin.Instance.TextFormat(displayName);
-
-        stringBuilder.AppendLine(displayName);
-
-        if (!Plugin.Instance.CheckMods.Value)
-            return stringBuilder.ToString();
-
-        string modTag = TagUtils.Instance.PlayerModsTag(rig);
-        if (!string.IsNullOrEmpty(modTag))
-            stringBuilder.Append($"<color=white><size=70%>{modTag}</size></color>");
-
-        return FinalizeFormat(stringBuilder.ToString());
-    }
-
-    private string FinalizeFormat(string text)
-        => Plugin.Instance.TextFormatScopeConfig.Value == Plugin.TextFormatScope.AllText ? Plugin.Instance.TextFormat(text) : text;
-
-    private void UpdateTextColor(VRRig rig, TextMeshPro text)
-    {
-        Color color = PlayerColor(rig);
-        text.color = color;
+        string result = sb.ToString();
+        return p.TextFormatScopeConfig.Value == Plugin.TextFormatScope.AllText ? p.TextFormat(result) : result;
     }
 
     private Color PlayerColor(VRRig rig)
     {
-        if (Plugin.Instance.GorillaFriends.Value && rig.Creator != null)
+        if (Plugin.Instance.GorillaFriends.Value)
         {
             if (GFriendUtils.Verified(rig.Creator))
                 return GFriends.m_clrVerified;
@@ -368,86 +278,46 @@ public class TagManager : MonoBehaviour
                 return GFriends.m_clrPlayedRecently;
         }
 
+        string mat = rig.mainSkin.material.name;
+
         //Paintbrawl Eliminated
-        if (rig.mainSkin.material.name.Contains("paintsplatterneutral"))
-            return new Color(1f, 1f, 1f);
+        if (mat.Contains("paintsplatterneutral"))
+            return Color.white;
 
         //Paintbrawl Unattackable (after balloon is popped)
-        if (rig.mainSkin.material.name.Contains("neutralstunned"))
+        if (mat.Contains("neutralstunned"))
             return new Color(.478f, .247f, 0f);
 
         //Rock Monke
-        if (rig.mainSkin.material.name.Contains("It"))
+        if (mat.Contains("It"))
             return new Color(.459f, .027f, 0f);
 
         //Lava Monke
-        return rig.mainSkin.material.name.Contains("fected") ? new Color(1f, 0.5f, 0.102f) : rig.playerColor;
+        return mat.Contains("fected") ? new Color(1f, 0.5f, 0.102f) : rig.playerColor;
     }
 
-    private void UpdateOutlines(NametagData data)
+    private void UpdateOutline(TextMeshPro text)
     {
-        if (data?.MainText == null) return;
+        Plugin   p   = Plugin.Instance;
+        Material mat = text.fontMaterial;
 
-        CleanupOutlines(data);
-
-        if (!Plugin.Instance.OutlineEnabled.Value) return;
-
-        ApplyOutlines(data.MainText, Plugin.Instance.OutlineThickness.Value, Plugin.Instance.OutlineColor.Value);
-    }
-
-    private void CleanupOutlines(NametagData data)
-    {
-        if (data?.MainText == null) return;
-
-        Material currentMat = data.MainText.fontMaterial;
-        Material sharedMat  = data.MainText.fontSharedMaterial;
-
-        if (currentMat != null && sharedMat != null && currentMat != sharedMat)
+        if (p.OutlineEnabled.Value)
         {
-            data.MainText.fontMaterial = sharedMat;
+            float thickness = p.OutlineThickness.Value;
 
-            try
-            {
-                Destroy(currentMat);
-            }
-            catch
-            {
-                // ignored
-            }
+            mat.SetFloat(ShaderUtilities.ID_OutlineWidth, thickness);
+            mat.SetColor(ShaderUtilities.ID_OutlineColor, p.OutlineColor.Value);
+            mat.SetFloat(ShaderUtilities.ID_OutlineSoftness, p.OutlineSoftness.Value);
+            mat.SetFloat(ShaderUtilities.ID_FaceDilate, Mathf.Clamp(thickness * 0.5f, 0f, 0.2f));
+            mat.EnableKeyword("OUTLINE_ON");
         }
-    }
-
-    private void ApplyOutlines(TextMeshPro txt, float thickness, Color color)
-    {
-        if (txt == null) return;
-
-        Material baseMat = txt.fontSharedMaterial;
-
-        if (baseMat == null) return;
-
-        Material instanceMat = txt.fontMaterial;
-
-        if (instanceMat == null || instanceMat == baseMat)
+        else
         {
-            instanceMat = new Material(baseMat)
-            {
-                    name      = baseMat.name + " (Outlined)",
-                    hideFlags = HideFlags.HideAndDontSave,
-            };
-
-            txt.fontMaterial = instanceMat;
+            mat.DisableKeyword("OUTLINE_ON");
         }
 
-        instanceMat.SetFloat(ShaderUtilities.ID_OutlineWidth, thickness);
-        instanceMat.SetColor(ShaderUtilities.ID_OutlineColor, color);
-        instanceMat.SetFloat(ShaderUtilities.ID_OutlineSoftness, Plugin.Instance.OutlineSoftness.Value);
-
-        float dilate = Mathf.Clamp(thickness * 0.5f, 0f, 0.2f);
-        instanceMat.SetFloat(ShaderUtilities.ID_FaceDilate, dilate);
-        instanceMat.EnableKeyword("OUTLINE_ON");
-
-        txt.UpdateMeshPadding();
-        txt.SetAllDirty();
+        text.UpdateMeshPadding();
+        text.SetAllDirty();
     }
 
 #endregion
