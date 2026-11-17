@@ -48,11 +48,10 @@ public class Plugin : BaseUnityPlugin
         Underline = 1 << 2,
     }
 
-    private bool _modListsChecked, _modsChecked, _cheatsChecked, _abbreviated;
-
     private const float CacheInt = 150f;
 
-    public static readonly string MainGitUrl = "https://raw.githubusercontent.com/GoldenIsAProtogen/GoldensGorillaNametags/main/", ModsGitUrl = "https://raw.githubusercontent.com/GoldenIsAProtogen/GoldensGorillaNametagsMC/main/Mods.txt";
+    public static readonly string MainGitUrl = "https://raw.githubusercontent.com/GoldenIsAProtogen/GoldensGorillaNametags/main/",
+                                  ModsGitUrl = "https://raw.githubusercontent.com/GoldenIsAProtogen/GoldensGorillaNametagsMC/main/Mods.txt";
 
     public Camera    CineCam;
     public Transform MainCam;
@@ -66,24 +65,26 @@ public class Plugin : BaseUnityPlugin
 
     public readonly Dictionary<VRRig, int> playerPing = new();
 
-    private GameObject componentHolder;
     private GUIManager guiManager;
 
     private float lastCacheTime, lastUpdateTime;
+
+    private bool tagsEnabled;
+
+    private (bool, bool, bool, bool) _lastChecks;
 
     private readonly HashSet<VRRig> _currentRigsBuffer = new();
 
     private static Shader _uberShaderCache;
     private static Shader UberShader => _uberShaderCache ??= Shader.Find("GorillaTag/UberShader");
 
-    private bool tagsEnabled;
-
     public ConfigEntry<Key>    GuiButton;
     public ConfigEntry<string> IconLocation, FontName, GuiFontName;
 
     public ConfigEntry<Color> OutlineColor, GuiAccentColor;
 
-    public ConfigEntry<bool> OutlineEnabled, CheckModLists, CheckMods, CheckCheats, AbbreviateMods, EstimateFPS, EstimatePing, CheckPlatform, CheckSpecial, CheckFps, CheckPing, CheckCosmetics, GorillaFriends, UsePlatIcons;
+    public ConfigEntry<bool> OutlineEnabled, CheckModLists, CheckMods, CheckCheats, AbbreviateMods, EstimateFPS, EstimatePing,
+                             CheckPlatform, CheckSpecial, CheckFps, CheckPing, CheckCosmetics, GorillaFriends, UsePlatIcons;
 
     public ConfigEntry<float> TagSize, TagHeight, UpdateInt, OutlineThickness, OutlineSoftness, IconSize, GuiCornerRadius, GuiOpacity;
 
@@ -110,18 +111,18 @@ public class Plugin : BaseUnityPlugin
         GorillaTagger.OnPlayerSpawned(OnInit);
         CosmeticsV2Spawner_Dirty.OnPostInstantiateAllPrefabs += OnCosmeticsLoaded;
         InitConfig();
-        InitCam();
-        InitHarmony();
+        CineCam = FindFirstObjectByType<CinemachineBrain>()?.GetComponent<Camera>();
+        new Harmony(Constants.Guid).PatchAll(Assembly.GetExecutingAssembly());
         Formatting();
     }
 
     private void OnInit()
     {
-        componentHolder = new GameObject("GoldensGorillaNametags Component Holder");
-        componentHolder.AddComponent<TagUtils>();
-        componentHolder.AddComponent<TagManager>();
+        GameObject holder = new("GoldensGorillaNametags Component Holder");
+        holder.AddComponent<TagUtils>();
+        holder.AddComponent<TagManager>();
 
-        PlayerSerializePatch.OnPlayerSerialize += rig => { playerPing[rig] = GetTruePing(rig); };
+        PlayerSerializePatch.OnPlayerSerialize += rig => playerPing[rig] = GetTruePing(rig);
     }
 
     private void InitConfig()
@@ -172,24 +173,6 @@ public class Plugin : BaseUnityPlugin
         GuiAccentColor  = Config.Bind("GUI", "Accent Color",  new Color(0.93f, 0.91f, 0.67f), "Accent color");
     }
 
-    private void InitCam()
-    {
-        try
-        {
-            CineCam = FindFirstObjectByType<CinemachineBrain>()?.GetComponent<Camera>();
-        }
-        catch
-        {
-            CineCam = null;
-        }
-    }
-
-    private void InitHarmony()
-    {
-        Harmony harmony = new(Constants.Guid);
-        harmony.PatchAll(Assembly.GetExecutingAssembly());
-    }
-
 #endregion
 
 #region ===== - Runtime - =====
@@ -198,57 +181,47 @@ public class Plugin : BaseUnityPlugin
     {
         guiManager?.Update();
 
-        if (_modListsChecked != CheckModLists.Value || _modsChecked != CheckMods.Value ||
-            _cheatsChecked   != CheckCheats.Value   || _abbreviated != AbbreviateMods.Value)
-        {
-            if (TagUtils.Instance != null)
-                TagUtils.Instance.RefreshCache();
+        (bool, bool, bool, bool) checks = (CheckModLists.Value, CheckMods.Value, CheckCheats.Value, AbbreviateMods.Value);
 
-            _modListsChecked = CheckModLists.Value;
-            _modsChecked     = CheckMods.Value;
-            _cheatsChecked   = CheckCheats.Value;
-            _abbreviated     = AbbreviateMods.Value;
+        if (checks != _lastChecks)
+        {
+            _lastChecks = checks;
+            RefreshCache();
         }
 
         if (!tagsEnabled)
             return;
 
-        if (Time.time - lastCacheTime >= CacheInt)
+        float currentTime = Time.time;
+
+        if (currentTime - lastCacheTime >= CacheInt)
         {
-            TagUtils.Instance.RefreshCache();
-            lastCacheTime = Time.time;
+            RefreshCache();
+            lastCacheTime = currentTime;
         }
 
         Camera mainCamera = Camera.main;
         if (mainCamera != null)
             MainCam = mainCamera.transform;
 
-        float currentTime = Time.time;
-
-        if (!(currentTime - lastUpdateTime >= UpdateInt.Value))
+        if (currentTime - lastUpdateTime < UpdateInt.Value)
             return;
 
-        IReadOnlyList<VRRig> activeRigs = VRRigCache.m_activeRigs;
+        _currentRigsBuffer.Clear();
 
-        if (activeRigs != null)
+        if (VRRigCache.m_activeRigs is { } activeRigs)
             foreach (VRRig rig in activeRigs)
             {
-                if (rig == null || rig.isOfflineVRRig)
+                _currentRigsBuffer.Add(rig);
+
+                if (rig == null || rig.isOfflineVRRig || rig.mainSkin == null)
                     continue;
 
-                Material mat = rig.mainSkin != null ? rig.mainSkin.material : null;
+                Material mat = rig.mainSkin.material;
 
-                if (mat == null)
-                    continue;
-
-                if (mat.shader == UberShader && mat.name.Contains("gorilla_body"))
+                if (mat != null && mat.shader == UberShader && mat.name.Contains("gorilla_body"))
                     mat.color = rig.playerColor;
             }
-
-        _currentRigsBuffer.Clear();
-        if (activeRigs != null)
-            foreach (VRRig rig in activeRigs)
-                _currentRigsBuffer.Add(rig);
 
         TagManager.Instance.CleanupTags(_currentRigsBuffer);
         TagManager.Instance.CreateTagmap(_currentRigsBuffer);
@@ -258,75 +231,51 @@ public class Plugin : BaseUnityPlugin
 
     private void OnGUI() => guiManager?.OnGUI();
 
-    private void OnEnable()
+    private void OnEnable()  => SetTagsEnabled(true);
+    private void OnDisable() => SetTagsEnabled(false);
+
+    private void SetTagsEnabled(bool value)
     {
-        tagsEnabled = true;
+        tagsEnabled = value;
 
         if (TagManager.Instance != null)
             TagManager.Instance.ClearTags();
     }
 
-    private void OnDisable()
+    private static void RefreshCache()
     {
-        tagsEnabled = false;
-
-        if (TagManager.Instance != null)
-            TagManager.Instance.ClearTags();
+        if (TagUtils.Instance != null)
+            TagUtils.Instance.RefreshCache();
     }
 
     public void Formatting()
     {
-        FormatPrefix = "";
-        FormatSuffix = "";
-
         TextStyle style = TextStyleConfig.Value;
 
-        if (style.HasFlag(TextStyle.Bold))
-        {
-            FormatPrefix += "<b>";
-            FormatSuffix =  "</b>" + FormatSuffix;
-        }
+        bool bold      = style.HasFlag(TextStyle.Bold);
+        bool italic    = style.HasFlag(TextStyle.Italic);
+        bool underline = style.HasFlag(TextStyle.Underline);
 
-        if (style.HasFlag(TextStyle.Italic))
-        {
-            FormatPrefix += "<i>";
-            FormatSuffix =  "</i>" + FormatSuffix;
-        }
-
-        if (style.HasFlag(TextStyle.Underline))
-        {
-            FormatPrefix += "<u>";
-            FormatSuffix =  "</u>" + FormatSuffix;
-        }
+        FormatPrefix = (bold ? "<b>" : "") + (italic ? "<i>" : "") + (underline ? "<u>" : "");
+        FormatSuffix = (underline ? "</u>" : "") + (italic ? "</i>" : "") + (bold ? "</b>" : "");
     }
 
     public string TextFormat(string text)
     {
-        TextCase c = TextCaseConfig.Value;
-
-        text = c switch
+        text = TextCaseConfig.Value switch
                {
                        TextCase.Uppercase => text.ToUpperInvariant(),
                        TextCase.Lowercase => text.ToLowerInvariant(),
                        TextCase.Titlecase => ToTitleCase(text),
-                       var _              => text,
+                       _                  => text,
                };
-
-        if (FormatPrefix.Length == 0)
-            return text;
 
         return FormatPrefix + text + FormatSuffix;
     }
 
-    // Because it doesn't have this, or I'm stupid and can't find it
     private static string ToTitleCase(string text) => string.IsNullOrWhiteSpace(text) ? text : CultureInfo.InvariantCulture.TextInfo.ToTitleCase(text.ToLowerInvariant());
 
-    private int GetTruePing(VRRig rig)
-    {
-        double ping = Math.Abs((rig.velocityHistoryList[0].time - PhotonNetwork.Time) * 1000);
-
-        return (int)Math.Clamp(Math.Round(ping), 0, int.MaxValue);
-    }
+    private static int GetTruePing(VRRig rig) => (int)Math.Min(Math.Round(Math.Abs((rig.velocityHistoryList[0].time - PhotonNetwork.Time) * 1000)), int.MaxValue);
 
 #endregion
 
@@ -336,25 +285,16 @@ public class Plugin : BaseUnityPlugin
 
     private IEnumerator DownloadAndCacheIcons()
     {
-        string dllPath  = Assembly.GetExecutingAssembly().Location;
-        string dllDir   = Path.GetDirectoryName(dllPath);
-        string iconsDir = Path.Combine(dllDir, "Icons");
+        string iconsDir = Path.Combine(Path.GetDirectoryName(Info.Location), "Icons");
+        Directory.CreateDirectory(iconsDir);
 
-        if (!Directory.Exists(iconsDir))
-            Directory.CreateDirectory(iconsDir);
-
-        (string, string)[] icons = new[]
-        {
-                ("steamicon.png", $"{MainGitUrl}Icons/steamicon.png"), ("pcvricon.png", $"{MainGitUrl}Icons/pcvricon.png"), ("questpcicon.png", $"{MainGitUrl}Icons/questpcicon.png"), ("questicon.png", $"{MainGitUrl}Icons/questicon.png"), ("maybeicon.png", $"{MainGitUrl}Icons/maybeicon.png"),
-        };
-
-        foreach ((string fileName, string url) in icons)
+        foreach (string fileName in new[] { "steamicon.png", "pcvricon.png", "questpcicon.png", "questicon.png", "maybeicon.png", })
         {
             string filePath = Path.Combine(iconsDir, fileName);
 
             if (!File.Exists(filePath))
             {
-                using UnityWebRequest request = UnityWebRequest.Get(url);
+                using UnityWebRequest request = UnityWebRequest.Get($"{MainGitUrl}Icons/{fileName}");
                 request.timeout = 30;
 
                 yield return request.SendWebRequest();
@@ -373,47 +313,34 @@ public class Plugin : BaseUnityPlugin
             yield return new WaitForSeconds(0.1f);
         }
 
-        LoadIconsFromFile(iconsDir);
-
-        if (TagUtils.Instance != null)
-            TagUtils.Instance.RefreshCache();
-    }
-
-    private void LoadIconsFromFile(string iconsDir)
-    {
         SteamTex   = LoadIconFromFile(Path.Combine(iconsDir, "steamicon.png"));
         PcvrTex    = LoadIconFromFile(Path.Combine(iconsDir, "pcvricon.png"));
         QuestpcTex = LoadIconFromFile(Path.Combine(iconsDir, "questpcicon.png"));
         QuestTex   = LoadIconFromFile(Path.Combine(iconsDir, "questicon.png"));
         MaybeTex   = LoadIconFromFile(Path.Combine(iconsDir, "maybeicon.png"));
+
+        RefreshCache();
     }
 
-    private Texture2D LoadIconFromFile(string path)
+    private static Texture2D LoadIconFromFile(string path)
     {
-        if (!File.Exists(path))
-            return null;
-
         try
         {
-            byte[] fileData = File.ReadAllBytes(path);
+            byte[] data = File.ReadAllBytes(path);
 
-            if (fileData.Length == 0)
-                return null;
+            Texture2D tex = new(2, 2, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point, };
 
-            Texture2D tex = new(2, 2, TextureFormat.RGBA32, false)
-                    { filterMode = FilterMode.Point, };
-
-            if (tex.LoadImage(fileData))
+            if (tex.LoadImage(data))
                 return tex;
 
             Destroy(tex);
-
-            return null;
         }
         catch
         {
-            return null;
+            // ignored
         }
+
+        return null;
     }
 
 #endregion
