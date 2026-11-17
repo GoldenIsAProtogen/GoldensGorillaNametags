@@ -19,6 +19,7 @@ Want a mod/userid removed/added? Send me a message: [Contact](https://github.com
 # Features
 // ===== - ===== - ===== \\\\<br>
 To configure the mod, press "F4" in game or go to "(GorillaTag Directory)\BepInEx\config\golden.gorillanametags.cfg"<br>
+The directory for the fonts is "(GorillaTag Directory)\BepInEx\config\Goldens Mods Fonts"<br>
 <sub>List below of configurable things</sub>
 
 - Checks
