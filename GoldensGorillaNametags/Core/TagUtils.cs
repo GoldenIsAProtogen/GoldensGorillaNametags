@@ -3,10 +3,10 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
+using ExitGames.Client.Photon;
+using Photon.Pun;
 using PlayFab;
 using PlayFab.ClientModels;
 using UnityEngine;
@@ -20,18 +20,18 @@ public class TagUtils : MonoBehaviour
 
     public static TagUtils Instance;
 
-    private static readonly Dictionary<int, string> FpsColors = new()
+    private static readonly (int Min, string Color)[] FpsColors =
     {
-            { 250, "#800080" }, { 200, "#1e90ff" }, { 150, "#006400" },
-            { 100, "#00ff00" }, { 75, "#adff2f" }, { 55, "#ffff00" },
-            { 45, "#ffa500" }, { 30, "#ff0000" }, { 29, "#8b0000" },
+            (250, "#800080"), (200, "#1e90ff"), (150, "#006400"),
+            (100, "#00ff00"), (75, "#adff2f"), (55, "#ffff00"),
+            (45, "#ffa500"), (30, "#ff0000"), (29, "#8b0000"),
     };
 
-    private static readonly Dictionary<int, string> PingColors = new()
+    private static readonly (int Min, string Color)[] PingColors =
     {
-            { 25, "#800080" }, { 35, "#1e90ff" }, { 55, "#006400" },
-            { 75, "#00ff00" }, { 90, "#adff2f" }, { 120, "#ffff00" },
-            { 150, "#ffa500" }, { 200, "#ff0000" }, { 250, "#8b0000" },
+            (250, "#8b0000"), (200, "#ff0000"), (150, "#ffa500"),
+            (120, "#ffff00"), (90, "#adff2f"), (75, "#00ff00"),
+            (55, "#006400"), (35, "#1e90ff"), (25, "#800080"),
     };
 
     private static readonly Dictionary<string, string> PlatColors = new()
@@ -51,14 +51,14 @@ public class TagUtils : MonoBehaviour
     private static readonly DateTime                     AddedSteamPaymentDate  = new(2023, 02, 06);
     private static readonly Dictionary<string, DateTime> PlayerCreationDateDict = new();
 
-    private readonly Dictionary<NametagData, bool> _platformFallbackState = new();
-
+    private readonly        Dictionary<NametagData, bool> _platformFallbackState = new();
+    
     private static readonly Regex ControlCharRegex    = new(@"[\x00-\x1F\x7F]", RegexOptions.Compiled);
     private static readonly Regex EscapeSequenceRegex = new(@"\\[nrtvbfa\\]+", RegexOptions.Compiled);
     private static readonly Regex WhitespaceRegex     = new(@"\s+", RegexOptions.Compiled);
     private static readonly Regex ModVersionRegex     = new(@"v?\s*([0-9]+(\.[0-9]+){1,3})", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-    private Dictionary<string, string> specialCache, modsCache, eventColorsCache;
+    private Dictionary<string, string> specialCache, modsCache;
 
     private void Awake() => Instance = this;
 
@@ -95,77 +95,59 @@ public class TagUtils : MonoBehaviour
 
     private void UpdatePlatformIconTex(VRRig rig, NametagData data)
     {
-        Texture2D newPlatTex = PlatformTex(rig, out bool isFallback);
+        Texture2D newTex = PlatformTex(rig, out bool isFallback);
 
-        bool fallbackChanged = !_platformFallbackState.TryGetValue(data, out bool prevFallback) || prevFallback != isFallback;
-
-        if (newPlatTex == data.CurrentPlatformTex && !fallbackChanged)
+        if (newTex == data.CurrentPlatformTex && _platformFallbackState.TryGetValue(data, out bool prev) && prev == isFallback)
             return;
 
-        data.CurrentPlatformTex      = newPlatTex;
+        data.CurrentPlatformTex      = newTex;
         _platformFallbackState[data] = isFallback;
 
-        if (newPlatTex != null)
-        {
-            data.PlatformIconRenderer.sprite = Sprite.Create(newPlatTex, new Rect(0, 0, newPlatTex.width, newPlatTex.height), Vector2.one * 0.5f);
-            data.PlatformIconRenderer.gameObject.SetActive(true);
+        data.PlatformIconRenderer.sprite = newTex != null ? MakeSprite(newTex) : null;
+        data.PlatformIconRenderer.gameObject.SetActive(newTex != null);
 
-            UpdateMaybeIcon(data, isFallback);
-        }
-        else
-        {
-            data.PlatformIconRenderer.sprite = null;
-            data.PlatformIconRenderer.gameObject.SetActive(false);
-
-            UpdateMaybeIcon(data, false);
-        }
+        UpdateMaybeIcon(data, newTex != null && isFallback);
     }
+
+    private static Sprite MakeSprite(Texture2D tex) => Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), Vector2.one * 0.5f);
 
     private void UpdateMaybeIcon(NametagData data, bool show)
     {
         if (data?.PlatformIconRenderer == null)
             return;
 
-        Transform existingT = data.PlatformIconRenderer.transform.Find("MaybeIcon");
+        Transform parent = data.PlatformIconRenderer.transform;
+        Transform maybe  = parent.Find("MaybeIcon");
 
         if (!show)
         {
-            if (existingT != null)
-                existingT.gameObject.SetActive(false);
+            if (maybe != null)
+                maybe.gameObject.SetActive(false);
 
             return;
         }
 
-        if (Plugin.Instance.MaybeTex == null)
+        Texture2D tex = Plugin.Instance.MaybeTex;
+
+        if (tex == null)
             return;
 
-        SpriteRenderer maybeRenderer = MaybeIconRenderer(data.PlatformIconRenderer);
-
-        if (maybeRenderer.sprite == null || maybeRenderer.sprite.texture != Plugin.Instance.MaybeTex)
-            maybeRenderer.sprite = Sprite.Create(Plugin.Instance.MaybeTex, new Rect(0, 0, Plugin.Instance.MaybeTex.width, Plugin.Instance.MaybeTex.height), Vector2.one * 0.5f);
-
-        maybeRenderer.gameObject.SetActive(true);
-    }
-
-    private SpriteRenderer MaybeIconRenderer(SpriteRenderer parentRenderer)
-    {
-        Transform  existing = parentRenderer.transform.Find("MaybeIcon");
-        GameObject go;
-
-        if (existing != null)
+        if (maybe == null)
         {
-            go = existing.gameObject;
-        }
-        else
-        {
-            go = new GameObject("MaybeIcon");
-            go.transform.SetParent(parentRenderer.transform, false);
-            go.AddComponent<SpriteRenderer>().sortingOrder = parentRenderer.sortingOrder + 1;
+            GameObject go = new("MaybeIcon");
+            go.transform.SetParent(parent, false);
+            go.AddComponent<SpriteRenderer>().sortingOrder = data.PlatformIconRenderer.sortingOrder + 1;
+            maybe = go.transform;
         }
 
-        go.transform.localPosition = new Vector3(2.5f, 0f, 0f);
+        maybe.localPosition = new Vector3(2.5f, 0f, 0f);
 
-        return go.GetComponent<SpriteRenderer>();
+        SpriteRenderer renderer = maybe.GetComponent<SpriteRenderer>();
+
+        if (renderer.sprite == null || renderer.sprite.texture != tex)
+            renderer.sprite = MakeSprite(tex);
+
+        maybe.gameObject.SetActive(true);
     }
 
     private Texture2D PlatformTex(VRRig rig, out bool isFallback)
@@ -175,67 +157,42 @@ public class TagUtils : MonoBehaviour
         if (!rig.initializedCosmetics)
             return null;
 
-        string platform = GetPlatformProperty(rig);
-
-        Texture2D tex = platform switch
-                        {
-                                "STEAM"   => Plugin.Instance.SteamTex,
-                                "PC"      => Plugin.Instance.PcvrTex,
-                                "QUESTPC" => Plugin.Instance.QuestpcTex,
-                                "PCVR"    => Plugin.Instance.PcvrTex,
-                                "QUEST"   => Plugin.Instance.QuestTex,
-                                var _     => null,
-                        };
+        Texture2D tex = TexForKey(GetPlatformProperty(rig));
 
         if (tex != null)
             return tex;
 
         isFallback = true;
 
-        return PlatformTexFallback(rig);
+        return TexForKey(PlatformKeyFallback(rig)) ?? Plugin.Instance.MaybeTex;
     }
 
-    private Texture2D PlatformTexFallback(VRRig rig)
-    {
-        string cosmetics = rig._playerOwnedCosmetics.Concat();
-        int    propCount = rig.Creator.GetPlayerRef().CustomProperties.Count;
-
-        if (cosmetics.Contains("S. FIRST LOGIN")) return Plugin.Instance.SteamTex;
-        if (cosmetics.Contains("FIRST LOGIN") || cosmetics.Contains("game-purchase-bundle"))
-            return Plugin.Instance.QuestpcTex;
-
-        if (propCount > 1 || rig.currentRankedSubTierPC > 0) return Plugin.Instance.PcvrTex;
-        if (rig.currentRankedSubTierQuest > 0) return Plugin.Instance.QuestTex;
-
-        DateTime? playerCreationDate = GetPlayerCreationDate(rig.Creator.UserId);
-
-        if (playerCreationDate.HasValue && playerCreationDate.Value > AddedSteamPaymentDate)
-            return Plugin.Instance.QuestTex;
-
-        return Plugin.Instance.MaybeTex;
-    }
+    private static Texture2D TexForKey(string key) => key?.TrimEnd('?') switch
+                                                      {
+                                                              "STEAM"   => Plugin.Instance.SteamTex,
+                                                              "PC"      => Plugin.Instance.PcvrTex,
+                                                              "PCVR"    => Plugin.Instance.PcvrTex,
+                                                              "QUESTPC" => Plugin.Instance.QuestpcTex,
+                                                              "QUEST"   => Plugin.Instance.QuestTex,
+                                                              var _     => null,
+                                                      };
 
 #endregion
 
 #region ===== - Tag Content - =====
 
-    public string FpsColor(int fps)
+    private static string PickColor((int Min, string Color)[] table, int value, string fallback)
     {
-        foreach (KeyValuePair<int, string> threshold in FpsColors.OrderByDescending(kv => kv.Key))
-            if (fps >= threshold.Key)
-                return threshold.Value;
+        foreach ((int min, string color) in table)
+            if (value >= min)
+                return color;
 
-        return "#600000";
+        return fallback;
     }
 
-    public string PingColor(int ping)
-    {
-        foreach (KeyValuePair<int, string> threshold in PingColors.OrderByDescending(kv => kv.Key))
-            if (ping >= threshold.Key)
-                return threshold.Value;
+    public string FpsColor(int fps) => PickColor(FpsColors, fps, "#600000");
 
-        return "#ab0080";
-    }
+    public string PingColor(int ping) => PickColor(PingColors, ping, "#ab0080");
 
     public string SpecialPlayerTag(VRRig rig)
     {
@@ -275,19 +232,15 @@ public class TagUtils : MonoBehaviour
     private string PlatformKeyFallback(VRRig rig)
     {
         string cosmetics = rig._playerOwnedCosmetics.Concat() ?? "";
-        int    propCount = rig.Creator.GetPlayerRef().CustomProperties.Count;
 
         if (cosmetics.Contains("S. FIRST LOGIN")) return "STEAM?";
         if (cosmetics.Contains("FIRST LOGIN") || cosmetics.Contains("game-purchase-bundle")) return "QUESTPC?";
-        if (propCount > 1                     || rig.currentRankedSubTierPC > 0) return "PCVR?";
+        if (rig.Creator.GetPlayerRef().CustomProperties.Count > 1 || rig.currentRankedSubTierPC > 0) return "PCVR?";
         if (rig.currentRankedSubTierQuest > 0) return "QUEST?";
 
         DateTime? playerCreationDate = GetPlayerCreationDate(rig.Creator.UserId);
 
-        if (playerCreationDate.HasValue && playerCreationDate.Value > AddedSteamPaymentDate)
-            return "QUEST?";
-
-        return "UNKNOWN";
+        return playerCreationDate > AddedSteamPaymentDate ? "QUEST?" : "UNKNOWN";
     }
 
     private string GetPlatformProperty(VRRig rig)
@@ -310,14 +263,9 @@ public class TagUtils : MonoBehaviour
     {
         if (!Plugin.Instance.CheckCosmetics.Value) return string.Empty;
 
-        StringBuilder sb        = new(32);
-        string        cosmetics = rig._playerOwnedCosmetics.Concat() ?? "";
+        string cosmetics = rig._playerOwnedCosmetics.Concat() ?? "";
 
-        foreach (KeyValuePair<string, string> cosmetic in SpecialCosmetics)
-            if (cosmetics.Contains(cosmetic.Key))
-                sb.Append(cosmetic.Value);
-
-        return sb.ToString();
+        return string.Concat(SpecialCosmetics.Where(c => cosmetics.Contains(c.Key)).Select(c => c.Value));
     }
 
     public string PlayerModsTag(VRRig rig)
@@ -325,48 +273,42 @@ public class TagUtils : MonoBehaviour
         if (!Plugin.Instance.CheckModLists.Value || modsCache == null)
             return string.Empty;
 
-        StringBuilder sb    = new(128);
-        Hashtable     props = null;
+        StringBuilder sb = new(128);
 
         try
         {
-            props = rig.Creator.GetPlayerRef().CustomProperties;
+            foreach (DictionaryEntry entry in rig.Creator.GetPlayerRef().CustomProperties)
+                try
+                {
+                    string rawKey = entry.Key?.ToString() ?? "";
+
+                    int wyndigoIdx = rawKey.IndexOf("wyndigo", StringComparison.OrdinalIgnoreCase);
+                    if (wyndigoIdx >= 0)
+                    {
+                        sb.Append($"[<color=#ff0000>WYNDIGO</color> {rawKey.Substring(wyndigoIdx + 7).Trim().ToLower()}] ");
+
+                        continue;
+                    }
+
+                    string key = NormalizeString(rawKey);
+
+                    if (!modsCache.TryGetValue(key, out string tag))
+                        continue;
+
+                    string formatted = FormatModValue(key, tag, entry.Value);
+
+                    if (formatted != null)
+                        sb.Append(formatted + " ");
+                }
+                catch
+                {
+                    // ignored
+                }
         }
         catch
         {
             return string.Empty;
         }
-
-        if (props == null) return string.Empty;
-
-        foreach (DictionaryEntry entry in props)
-            try
-            {
-                string _firstkey = entry.Key?.ToString() ?? "";
-
-                int wyndigoIdx = _firstkey.IndexOf("wyndigo", StringComparison.OrdinalIgnoreCase);
-                if (wyndigoIdx >= 0)
-                {
-                    string afterWyndigo = _firstkey.Substring(wyndigoIdx + "wyndigo".Length).Trim();
-
-                    sb.Append($"[<color=#ff0000>WYNDIGO</color> {afterWyndigo.ToLower()}] ");
-
-                    continue;
-                }
-
-                string _secondkey = NormalizeString(entry.Key.ToString());
-
-                if (!modsCache.TryGetValue(_secondkey, out string tag))
-                    continue;
-
-                string formatted = FormatModValue(_secondkey, tag, entry.Value);
-
-                if (formatted == null)
-                    continue;
-
-                sb.Append(formatted + " ");
-            }
-            catch { }
 
         try
         {
@@ -377,7 +319,6 @@ public class TagUtils : MonoBehaviour
         {
             // ignored
         }
-
         return sb.ToString().Trim();
     }
 
@@ -385,69 +326,34 @@ public class TagUtils : MonoBehaviour
     {
         if (value == null) return null;
 
-        string version = null;
-
-        try
-        {
-            version = value switch
-                      {
-                              string s when s.StartsWith("System.", StringComparison.OrdinalIgnoreCase) => null,
-                              string s                                                                  => ModVersionRegex.Match(s) is { Success: true, } m ? m.Groups[1].Value : null,
-                              Hashtable ht                                                              => FindDictValue(ht, "version"),
-                              IDictionary d                                                             => FindDictValue(d,  "version"),
-                              bool                                                                      => null,
-                              var _                                                                     => null,
-                      };
-        }
-        catch
-        {
-            version = null;
-        }
+        string version = value switch
+                         {
+                                 string s when s.StartsWith("System.", StringComparison.OrdinalIgnoreCase) => null,
+                                 string s                                                                  => ModVersionRegex.Match(s) is { Success: true, } m ? m.Groups[1].Value : null,
+                                 Hashtable ht                                                              => FindDictValue(ht, "version"),
+                                 IDictionary d                                                             => FindDictValue(d,  "version"),
+                                 var _                                                                     => null,
+                         };
 
         if (!string.IsNullOrEmpty(version))
-        {
-            if (string.Equals(version.Trim(), "true",  StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(version.Trim(), "false", StringComparison.OrdinalIgnoreCase))
-                return null;
+            return bool.TryParse(version, out bool _) ? null : string.Format(tag, version);
 
-            return string.Format(tag, version);
-        }
-
-        string raw = null;
-
-        try
-        {
-            raw = value switch
-                  {
-                          Hashtable ht  => FindDictValue(ht, "other", "extra") ?? FindDictValue(ht, "version"),
-                          IDictionary d => FindDictValue(d, "other", "extra"),
-                          string s      => s,
-                          bool b        => b.ToString(),
-                          var _         => value.ToString(),
-                  };
-        }
-        catch
-        {
-            raw = value.ToString();
-        }
+        string raw = value switch
+                     {
+                             Hashtable ht  => FindDictValue(ht, "other", "extra") ?? FindDictValue(ht, "version"),
+                             IDictionary d => FindDictValue(d, "other", "extra"),
+                             var _         => value.ToString(),
+                     };
 
         if (string.IsNullOrEmpty(raw))
             return null;
 
         string trimmed = raw.Trim();
 
-        if (bool.TryParse(trimmed, out bool _)                                  ||
-            string.Equals(trimmed, "true",  StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(trimmed, "false", StringComparison.OrdinalIgnoreCase))
+        if (bool.TryParse(trimmed, out bool _) || string.Equals(NormalizeString(trimmed), key, StringComparison.OrdinalIgnoreCase))
             return null;
 
-        if (string.Equals(NormalizeString(trimmed), key, StringComparison.OrdinalIgnoreCase))
-            return null;
-
-        if (tag.Contains("{0}"))
-            return Regex.Replace(tag, @"\s*\{0\}\s*", " ").Trim();
-
-        return tag.Trim();
+        return Regex.Replace(tag, @"\s*\{0\}\s*", " ").Trim();
     }
 
     private string FindDictValue(IEnumerable dict, params string[] keys)
@@ -457,7 +363,7 @@ public class TagUtils : MonoBehaviour
         try
         {
             foreach (DictionaryEntry e in dict)
-                if (e.Key is string k && keys.Any(target => string.Equals(k, target, StringComparison.OrdinalIgnoreCase)))
+                if (e.Key is string k && keys.Contains(k, StringComparer.OrdinalIgnoreCase))
                     return e.Value?.ToString();
         }
         catch (InvalidCastException)
@@ -466,19 +372,11 @@ public class TagUtils : MonoBehaviour
             {
                 foreach (object item in dict)
                 {
-                    if (item == null) continue;
+                    Type   type = item?.GetType();
+                    string key  = type?.GetProperty("Key")?.GetValue(item)?.ToString();
 
-                    Type         type      = item.GetType();
-                    PropertyInfo keyProp   = type.GetProperty("Key");
-                    PropertyInfo valueProp = type.GetProperty("Value");
-
-                    if (keyProp != null && valueProp != null)
-                    {
-                        string key = keyProp.GetValue(item)?.ToString();
-
-                        if (key != null && keys.Any(target => string.Equals(key, target, StringComparison.OrdinalIgnoreCase)))
-                            return valueProp.GetValue(item)?.ToString();
-                    }
+                    if (key != null && keys.Contains(key, StringComparer.OrdinalIgnoreCase))
+                        return type.GetProperty("Value")?.GetValue(item)?.ToString();
                 }
             }
             catch
@@ -486,7 +384,7 @@ public class TagUtils : MonoBehaviour
                 // ignored
             }
         }
-        catch (Exception)
+        catch
         {
             // ignored
         }
@@ -496,7 +394,9 @@ public class TagUtils : MonoBehaviour
 
     private bool HasCosmetx(VRRig rig)
     {
-        return rig.cosmeticSet.items.Any(item => !item.isNullItem && rig._playerOwnedCosmetics.Concat()?.Contains(item.itemName) != true);
+        string cosmetics = rig._playerOwnedCosmetics.Concat();
+
+        return rig.cosmeticSet.items.Any(item => !item.isNullItem && cosmetics?.Contains(item.itemName) != true);
     }
 
 #endregion
@@ -514,104 +414,68 @@ public class TagUtils : MonoBehaviour
         yield return new WaitForEndOfFrame();
 
         if (Plugin.Instance.CheckSpecial.Value)
-            specialCache = SpecialPlayerCache();
+            specialCache = LoadCache($"{Plugin.MainGitUrl}People.txt");
 
         if (Plugin.Instance.CheckModLists.Value)
-            modsCache = ModsCache();
+        {
+            modsCache = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            if (Plugin.Instance.CheckMods.Value)
+                ParseKeyValues(Download($"{Plugin.ModsGitUrl}{(Plugin.Instance.AbbreviateMods.Value ? "Mods.txt" : "Mods_unabbreviated.txt")}"), modsCache, Constants.LegalMod);
+
+            if (Plugin.Instance.CheckCheats.Value)
+                ParseKeyValues(Download($"{Plugin.ModsGitUrl}Cheats.txt"), modsCache, Constants.IllegalMod);
+        }
     }
 
-    private Dictionary<string, string> SpecialPlayerCache()
+    private static string Download(string url)
     {
-        Dictionary<string, string> cache = new(StringComparer.OrdinalIgnoreCase);
-        try
-        {
-            using WebClient client  = new();
-            string          content = client.DownloadString($"{Plugin.MainGitUrl}People.txt");
-            ParseKeyValues(content, cache);
-        }
-        catch
-        {
-            // ignored
-        }
-
-        return cache;
-    }
-
-    private Dictionary<string, string> ModsCache()
-    {
-        Dictionary<string, string> cache = new(StringComparer.OrdinalIgnoreCase);
-
         try
         {
             using WebClient client = new();
 
-            if (Plugin.Instance.CheckMods.Value)
-            {
-                string modFile = Plugin.Instance.AbbreviateMods.Value ? "Mods.txt" : "Mods_unabbreviated.txt";
-                try
-                {
-                    string content = client.DownloadString($"{Plugin.ModsGitUrl}{modFile}");
-                    ParseKeyValues(content, cache, Constants.LegalMod);
-                }
-                catch
-                {
-                    // ignored
-                }
-            }
-
-            if (Plugin.Instance.CheckCheats.Value)
-            {
-                string cheatFile = "Cheats.txt";
-                try
-                {
-                    string content = client.DownloadString($"{Plugin.ModsGitUrl}{cheatFile}");
-                    ParseKeyValues(content, cache, Constants.IllegalMod);
-                }
-                catch
-                {
-                    // ignored
-                }
-            }
+            return client.DownloadString(url);
         }
         catch
         {
-            // ignored
+            return null;
         }
+    }
+
+    private Dictionary<string, string> LoadCache(string url)
+    {
+        Dictionary<string, string> cache = new(StringComparer.OrdinalIgnoreCase);
+        ParseKeyValues(Download(url), cache);
 
         return cache;
     }
 
     private void ParseKeyValues(string content, Dictionary<string, string> dictionary, string color = null)
     {
-        string[] lines = content.Split(['\n', '\r',], StringSplitOptions.RemoveEmptyEntries);
-        foreach (string line in lines)
-        {
-            string[] parts = line.Split(['|',], 2, StringSplitOptions.None);
-            if (parts.Length == 2)
-            {
-                string key     = NormalizeString(parts[0]);
-                string _string = parts[1].Trim();
+        if (content == null)
+            return;
 
-                dictionary[key] = color != null ? FormatColoredTag(_string, color) : _string;
-            }
+        foreach (string line in content.Split(['\n', '\r',], StringSplitOptions.RemoveEmptyEntries))
+        {
+            int sep = line.IndexOf('|');
+
+            if (sep < 0)
+                continue;
+
+            string value = line.Substring(sep + 1).Trim();
+
+            dictionary[NormalizeString(line.Substring(0, sep))] = color != null ? FormatColoredTag(value, color) : value;
         }
     }
 
-    private string FormatColoredTag(string _string, string color)
+    private string FormatColoredTag(string value, string color)
     {
         const string versionSuffix = "v{0}";
 
-        if (_string.EndsWith(versionSuffix, StringComparison.OrdinalIgnoreCase))
-        {
-            string name = _string.Substring(0, _string.Length - versionSuffix.Length).TrimEnd();
+        if (value.EndsWith(versionSuffix, StringComparison.OrdinalIgnoreCase))
+            return $"[<color={color}>{value.Substring(0, value.Length - versionSuffix.Length).TrimEnd()}</color> {versionSuffix}]";
 
-            return $"[<color={color}>{name}</color> {versionSuffix}]";
-        }
-
-        if (_string.Contains("{0}"))
-            return $"[{_string}]";
-
-        return $"[<color={color}>{_string}</color>]";
+        return value.Contains("{0}") ? $"[{value}]" : $"[<color={color}>{value}</color>]";
     }
 
     private static string NormalizeString(string input)
@@ -619,12 +483,9 @@ public class TagUtils : MonoBehaviour
         if (string.IsNullOrWhiteSpace(input))
             return string.Empty;
 
-        input = ControlCharRegex.Replace(input, "");
-        input = EscapeSequenceRegex.Replace(input, "");
-        input = input.Replace("\\", "");
-        input = WhitespaceRegex.Replace(input, " ");
+        input = EscapeSequenceRegex.Replace(ControlCharRegex.Replace(input, ""), "").Replace("\\", "");
 
-        return input.Trim().ToLowerInvariant();
+        return WhitespaceRegex.Replace(input, " ").Trim().ToLowerInvariant();
     }
 
     private DateTime? GetPlayerCreationDate(string playFabId)
@@ -632,31 +493,15 @@ public class TagUtils : MonoBehaviour
         if (PlayerCreationDateDict.TryGetValue(playFabId, out DateTime cachedDate))
             return cachedDate;
 
-        _ = FetchCreationDateAsync(playFabId);
+        PlayFabClientAPI.GetAccountInfo(new GetAccountInfoRequest { PlayFabId = playFabId, },
+                result =>
+                {
+                    if (result.AccountInfo != null)
+                        PlayerCreationDateDict[playFabId] = result.AccountInfo.Created;
+                },
+                _ => { });
 
         return null;
-    }
-
-    private async Task FetchCreationDateAsync(string playFabId)
-    {
-        if (PlayerCreationDateDict.ContainsKey(playFabId))
-            return;
-
-        TaskCompletionSource<GetAccountInfoResult> tcs = new();
-
-        PlayFabClientAPI.GetAccountInfo(new GetAccountInfoRequest { PlayFabId = playFabId, },
-                result => tcs.SetResult(result),
-                error => tcs.SetException(new Exception(error.ErrorMessage)));
-
-        try
-        {
-            GetAccountInfoResult result = await tcs.Task;
-            PlayerCreationDateDict[playFabId] = result.AccountInfo.Created;
-        }
-        catch
-        {
-            // ignored
-        }
     }
 
 #endregion
